@@ -30,27 +30,27 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
-      <aside className="flex w-60 flex-col border-r bg-white">
-        <div className="flex items-center gap-2 px-6 py-5 border-b">
+      <aside className="flex h-screen w-60 flex-col border-r bg-white">
+        <div className="flex items-center gap-2 border-b px-6 py-5">
           <UtensilsCrossed className="h-6 w-6 text-brand-500" />
           <span className="text-xl font-bold text-brand-600">Zestful</span>
         </div>
 
-        <nav className="flex-1 space-y-1 px-3 py-4">
+        <nav className="space-y-1 px-3 py-4">
           {navItems.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium transition-colors',
                   isActive
                     ? 'bg-brand-50 text-brand-700'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                 )
               }
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="h-5 w-5 shrink-0" />
               {label}
             </NavLink>
           ))}
@@ -60,29 +60,30 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               to="/nutritionist"
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium transition-colors',
                   isActive
                     ? 'bg-brand-50 text-brand-700'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                 )
               }
             >
-              <Users className="h-4 w-4" />
+              <Users className="h-5 w-5 shrink-0" />
               Pacientes
             </NavLink>
           )}
         </nav>
 
-        <div className="border-t p-4">
+        <div className="mt-auto border-t p-4">
           <div className="mb-3 px-1">
-            <p className="text-sm font-medium text-gray-900 truncate">{user?.name}</p>
-            <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+            <p className="text-base font-medium text-gray-900 truncate">{user?.name}</p>
+            <p className="text-sm text-gray-500 truncate">{user?.email}</p>
           </div>
           <button
+            type="button"
             onClick={handleLogout}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-base text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-5 w-5 shrink-0" />
             Sair
           </button>
         </div>
