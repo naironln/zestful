@@ -3,7 +3,9 @@ from neo4j import AsyncSession
 
 from app.dependencies import get_session, get_current_user
 from app.models.meal import MealEntryOut, MealPatch, MealCorrection, MealDetail
+from app.models.comment import CommentOut
 from app.db.queries.meal_queries import patch_meal
+from app.db.queries.comment_queries import get_meal_comments, get_week_comments
 from app.services.meal_service import (
     upload_meal,
     list_meals,
@@ -44,6 +46,26 @@ async def get_meals(
     current_user: dict = Depends(get_current_user),
 ):
     return await list_meals(session, current_user["id"], start, end, meal_type)
+
+
+@router.get("/comments/week", response_model=list[CommentOut])
+async def get_my_week_comments(
+    week_start: str,
+    session: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    """Patient views nutritionist comments for a given week."""
+    return await get_week_comments(session, current_user["id"], week_start, current_user["id"])
+
+
+@router.get("/{meal_id}/comments", response_model=list[CommentOut])
+async def get_my_meal_comments(
+    meal_id: str,
+    session: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    """Patient views nutritionist comments on one of their meals."""
+    return await get_meal_comments(session, meal_id, current_user["id"])
 
 
 @router.get("/{meal_id}", response_model=MealEntryOut)

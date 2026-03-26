@@ -183,6 +183,29 @@ async def get_meal_full_detail(session: AsyncSession, meal_id: str, user_id: str
     return meal
 
 
+async def get_meal_full_detail_nutritionist(
+    session: AsyncSession, nutritionist_id: str, patient_id: str, meal_id: str
+) -> dict | None:
+    """Get full meal detail for a nutritionist who supervises the patient."""
+    result = await session.run(
+        """
+        MATCH (:User {id: $nutritionist_id})-[:SUPERVISES]->(p:User {id: $patient_id})-[:LOGGED]->(m:MealEntry {id: $meal_id})
+        OPTIONAL MATCH (m)-[r:HAS_INGREDIENT]->(i:Ingredient)
+        RETURN m,
+            collect({name: i.name, grams: r.grams}) AS ingredients_detail
+        """,
+        nutritionist_id=nutritionist_id,
+        patient_id=patient_id,
+        meal_id=meal_id,
+    )
+    record = await result.single()
+    if not record:
+        return None
+    meal = dict(record["m"])
+    meal["ingredients_detail"] = record["ingredients_detail"]
+    return meal
+
+
 async def delete_meal(session: AsyncSession, meal_id: str, user_id: str) -> tuple[bool, str | None]:
     """Remove meal node; returns (True, image_path) if deleted, (False, None) if not found."""
     result = await session.run(

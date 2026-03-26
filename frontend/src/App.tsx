@@ -10,6 +10,7 @@ import UploadPage from '@/pages/UploadPage'
 import MealDetailPage from '@/pages/MealDetailPage'
 import NutritionistPage from '@/pages/NutritionistPage'
 import PatientDetailPage from '@/pages/PatientDetailPage'
+import PatientMealDetailPage from '@/pages/PatientMealDetailPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated())
@@ -52,6 +53,14 @@ export default function App() {
                   element={
                     <NutritionistRoute>
                       <PatientDetailPage />
+                    </NutritionistRoute>
+                  }
+                />
+                <Route
+                  path="/nutritionist/patients/:patientId/meals/:mealId"
+                  element={
+                    <NutritionistRoute>
+                      <PatientMealDetailPage />
                     </NutritionistRoute>
                   }
                 />

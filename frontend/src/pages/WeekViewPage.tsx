@@ -8,9 +8,11 @@ import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { mealsApi } from '@/api/meals'
 import { statsApi } from '@/api/stats'
+import { getWeekComments } from '@/api/comments'
 import { Button } from '@/components/ui/button'
 import MealCard from '@/components/meals/MealCard'
 import StatsPanel from '@/components/stats/StatsPanel'
+import CommentSection from '@/components/comments/CommentSection'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { MealEntry } from '@/types/meal'
 
@@ -43,6 +45,11 @@ export default function WeekViewPage() {
     queryFn: () => statsApi.week(startStr),
   })
 
+  const { data: weekComments = [] } = useQuery({
+    queryKey: ['week-comments', startStr],
+    queryFn: () => getWeekComments(startStr),
+  })
+
   const label = `${formatInBrasilia(weekStart, "d 'de' MMM", { locale: ptBR })} – ${formatInBrasilia(weekEnd, "d 'de' MMM", { locale: ptBR })}`
 
   return (
@@ -63,6 +70,18 @@ export default function WeekViewPage() {
 
       {/* Stats */}
       {stats && <StatsPanel stats={stats} />}
+
+      {/* Nutritionist week feedback (read-only for patient) */}
+      {weekComments.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Feedback da nutricionista</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CommentSection comments={weekComments} />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Meals */}
       <Card>

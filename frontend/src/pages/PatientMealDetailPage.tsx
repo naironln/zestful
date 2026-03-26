@@ -1,12 +1,10 @@
-import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ptBR } from 'date-fns/locale'
 import { formatInBrasilia } from '@/lib/brasilTimezone'
-import { ArrowLeft, Utensils, Scale, Trash2 } from 'lucide-react'
+import { ArrowLeft, Utensils, Scale } from 'lucide-react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
-import { mealsApi } from '@/api/meals'
-import { getMealComments } from '@/api/comments'
+import { nutritionistCommentsApi } from '@/api/comments'
 import { BASE_URL } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -18,58 +16,54 @@ const PIE_COLORS = ['#10b981', '#f59e0b', '#6366f1', '#ec4899', '#3b82f6']
 const KEY_NUTRIENTS = ['energy_kcal', 'protein_g', 'carbohydrate_g', 'lipid_g', 'fiber_g']
 const NUTRIENT_LABELS: Record<string, string> = {
   energy_kcal: 'Calorias',
-  protein_g: 'Proteina',
+  protein_g: 'Proteína',
   carbohydrate_g: 'Carboidratos',
   lipid_g: 'Gorduras',
   fiber_g: 'Fibras',
 }
 
-export default function MealDetailPage() {
-  const { mealId } = useParams<{ mealId: string }>()
+export default function PatientMealDetailPage() {
+  const { patientId, mealId } = useParams<{ patientId: string; mealId: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [editingNotes, setEditingNotes] = useState(false)
-  const [notesValue, setNotesValue] = useState('')
 
   const { data: meal, isLoading } = useQuery({
-    queryKey: ['meal-detail', mealId],
-    queryFn: () => mealsApi.getDetail(mealId!),
-    enabled: !!mealId,
+    queryKey: ['nutritionist', 'patient', patientId, 'meal-detail', mealId],
+    queryFn: () => nutritionistCommentsApi.getPatientMealDetail(patientId!, mealId!),
+    enabled: !!patientId && !!mealId,
   })
 
   const { data: comments = [] } = useQuery({
-    queryKey: ['meal-comments', mealId],
-    queryFn: () => getMealComments(mealId!),
-    enabled: !!mealId,
+    queryKey: ['nutritionist', 'patient', patientId, 'meal-comments', mealId],
+    queryFn: () => nutritionistCommentsApi.getMealComments(patientId!, mealId!),
+    enabled: !!patientId && !!mealId,
   })
 
-  const notesMutation = useMutation({
-    mutationFn: (notes: string) => mealsApi.patch(mealId!, { notes }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['meal-detail', mealId] })
-      setEditingNotes(false)
-    },
+  const addComment = useMutation({
+    mutationFn: (content: string) =>
+      nutritionistCommentsApi.addMealComment(patientId!, mealId!, content),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: ['nutritionist', 'patient', patientId, 'meal-comments', mealId],
+      }),
   })
 
-  const deleteMutation = useMutation({
-    mutationFn: () => mealsApi.delete(mealId!),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['meals'] })
-      queryClient.invalidateQueries({ queryKey: ['stats'] })
-      navigate('/dashboard')
-    },
+  const editComment = useMutation({
+    mutationFn: ({ id, content }: { id: string; content: string }) =>
+      nutritionistCommentsApi.updateComment(id, content),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: ['nutritionist', 'patient', patientId, 'meal-comments', mealId],
+      }),
   })
 
-  const handleDelete = () => {
-    if (
-      !window.confirm(
-        'Tem certeza que deseja excluir esta refeição? Esta ação não pode ser desfeita.'
-      )
-    ) {
-      return
-    }
-    deleteMutation.mutate()
-  }
+  const deleteComment = useMutation({
+    mutationFn: (id: string) => nutritionistCommentsApi.deleteComment(id),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: ['nutritionist', 'patient', patientId, 'meal-comments', mealId],
+      }),
+  })
 
   if (isLoading) {
     return (
@@ -83,38 +77,37 @@ export default function MealDetailPage() {
     return (
       <div className="mx-auto max-w-4xl py-12 text-center">
         <p className="text-base text-gray-400">Refeição não encontrada.</p>
-        <Button variant="link" onClick={() => navigate('/dashboard')} className="mt-2">
-          Voltar ao início
+        <Button variant="link" onClick={() => navigate(-1)} className="mt-2">
+          Voltar
         </Button>
       </div>
     )
   }
 
   const imageUrl = meal.image_url
-    ? meal.image_url.startsWith('http') ? meal.image_url : `${BASE_URL}${meal.image_url}`
+    ? meal.image_url.startsWith('http')
+      ? meal.image_url
+      : `${BASE_URL}${meal.image_url}`
     : null
 
-  const dateLabel = formatInBrasilia(
-    meal.eaten_at,
-    "EEEE, d 'de' MMMM · HH:mm",
-    { locale: ptBR }
-  )
+  const dateLabel = formatInBrasilia(meal.eaten_at, "EEEE, d 'de' MMMM · HH:mm", { locale: ptBR })
 
-  const pieData = meal.plate_composition?.map((item, i) => ({
-    name: item.label,
-    value: item.percentage,
-    color: PIE_COLORS[i % PIE_COLORS.length],
-  })) ?? []
+  const pieData =
+    meal.plate_composition?.map((item, i) => ({
+      name: item.label,
+      value: item.percentage,
+      color: PIE_COLORS[i % PIE_COLORS.length],
+    })) ?? []
 
-  const keyNutrients = meal.nutrients
-    ?.filter(n => KEY_NUTRIENTS.includes(n.key))
-    .sort((a, b) => KEY_NUTRIENTS.indexOf(a.key) - KEY_NUTRIENTS.indexOf(b.key))
-    ?? []
+  const keyNutrients =
+    meal.nutrients
+      ?.filter((n) => KEY_NUTRIENTS.includes(n.key))
+      .sort((a, b) => KEY_NUTRIENTS.indexOf(a.key) - KEY_NUTRIENTS.indexOf(b.key)) ?? []
 
-  const otherNutrients = meal.nutrients
-    ?.filter(n => !KEY_NUTRIENTS.includes(n.key))
-    .sort((a, b) => a.name.localeCompare(b.name))
-    ?? []
+  const otherNutrients =
+    meal.nutrients
+      ?.filter((n) => !KEY_NUTRIENTS.includes(n.key))
+      .sort((a, b) => a.name.localeCompare(b.name)) ?? []
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
@@ -123,26 +116,10 @@ export default function MealDetailPage() {
         <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <h1 className="flex-1 text-2xl font-bold text-gray-900">Detalhes da refeição</h1>
-        <Button
-          type="button"
-          variant="destructive"
-          size="sm"
-          className="shrink-0 gap-1.5"
-          onClick={handleDelete}
-          disabled={deleteMutation.isPending}
-        >
-          <Trash2 className="h-4 w-4" />
-          {deleteMutation.isPending ? 'Excluindo...' : 'Excluir'}
-        </Button>
+        <h1 className="flex-1 text-2xl font-bold text-gray-900">Refeição do paciente</h1>
       </div>
-      {deleteMutation.isError && (
-        <p className="text-sm text-red-600">
-          Não foi possível excluir. Tente novamente.
-        </p>
-      )}
 
-      {/* Photo — intrinsic aspect ratio; capped so very tall photos don’t dominate */}
+      {/* Photo */}
       {imageUrl ? (
         <div className="flex justify-center rounded-2xl bg-gray-100">
           <img
@@ -166,7 +143,7 @@ export default function MealDetailPage() {
         <p className="mt-1 text-base capitalize text-gray-500">{dateLabel}</p>
       </div>
 
-      {/* Key nutrients summary */}
+      {/* Key nutrients */}
       {keyNutrients.length > 0 && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
           {keyNutrients.map((n) => (
@@ -185,7 +162,7 @@ export default function MealDetailPage() {
         </div>
       )}
 
-      {/* Plate composition pie chart */}
+      {/* Plate composition pie */}
       {pieData.length > 0 && (
         <Card>
           <CardHeader>
@@ -221,7 +198,7 @@ export default function MealDetailPage() {
         </Card>
       )}
 
-      {/* Ingredients with grams */}
+      {/* Ingredients */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base font-semibold">
@@ -262,55 +239,36 @@ export default function MealDetailPage() {
         </Card>
       )}
 
-      {/* Notes */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base font-semibold">Notas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {editingNotes ? (
-            <div className="space-y-2">
-              <textarea
-                value={notesValue}
-                onChange={(e) => setNotesValue(e.target.value)}
-                rows={3}
-                className="w-full rounded-lg border border-input px-3 py-2 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                placeholder="Ex: jantar fora com os amigos..."
-              />
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  onClick={() => notesMutation.mutate(notesValue)}
-                  disabled={notesMutation.isPending}
-                >
-                  {notesMutation.isPending ? 'Salvando...' : 'Salvar'}
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setEditingNotes(false)}>
-                  Cancelar
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div
-              onClick={() => { setNotesValue(meal.notes || ''); setEditingNotes(true) }}
-              className="min-h-[2.5rem] cursor-pointer rounded-lg p-2 text-base text-gray-500 hover:bg-gray-50"
-            >
-              {meal.notes || 'Clique para adicionar notas...'}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-      {/* Nutritionist comments (read-only for patient) */}
-      {comments.length > 0 && (
+      {/* Patient notes (read-only for nutritionist) */}
+      {meal.notes && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base font-semibold">Comentários da nutricionista</CardTitle>
+            <CardTitle className="text-base font-semibold">Notas do paciente</CardTitle>
           </CardHeader>
           <CardContent>
-            <CommentSection comments={comments} />
+            <p className="text-base text-gray-600">{meal.notes}</p>
           </CardContent>
         </Card>
       )}
+
+      {/* Nutritionist comments (editable) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base font-semibold">Comentários</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CommentSection
+            comments={comments}
+            onAdd={(content) => addComment.mutate(content)}
+            onEdit={(id, content) => editComment.mutate({ id, content })}
+            onDelete={(id) => {
+              if (!window.confirm('Excluir este comentário?')) return
+              deleteComment.mutate(id)
+            }}
+            isLoading={addComment.isPending}
+          />
+        </CardContent>
+      </Card>
     </div>
   )
 }

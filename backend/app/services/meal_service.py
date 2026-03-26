@@ -12,7 +12,8 @@ import json
 
 from app.db.queries.meal_queries import (
     create_meal_entry, get_meals_by_range, get_meal_with_details,
-    apply_meal_correction, save_portion_estimates, get_meal_full_detail, delete_meal,
+    apply_meal_correction, save_portion_estimates, get_meal_full_detail,
+    get_meal_full_detail_nutritionist, delete_meal,
 )
 from app.db.queries.taco_queries import get_meal_nutrition
 from app.services.claude_service import analyze_meal_image, correct_meal_analysis, estimate_portions
@@ -255,6 +256,38 @@ async def get_meal_detail_full(session, user_id: str, meal_id: str) -> MealDetai
         return None
 
     nutrition_data = await get_meal_nutrition(session, meal_id, user_id)
+
+    nutrients = None
+    if nutrition_data and nutrition_data.get("ingredients"):
+        totals: dict[str, dict] = {}
+        for ing in nutrition_data["ingredients"]:
+            for n in (ing.get("nutrients") or []):
+                key = n["key"]
+                if key in totals:
+                    totals[key]["per_100g"] += n["per_100g"]
+                else:
+                    totals[key] = {
+                        "key": key,
+                        "name": n["name"],
+                        "unit": n["unit"],
+                        "per_100g": n["per_100g"],
+                    }
+        if totals:
+            nutrients = list(totals.values())
+
+    return _meal_record_to_detail(meal, nutrients)
+
+
+async def get_meal_detail_full_for_nutritionist(
+    session, nutritionist_id: str, patient_id: str, meal_id: str
+) -> MealDetail | None:
+    """Full meal detail for a nutritionist who supervises the patient."""
+    meal = await get_meal_full_detail_nutritionist(session, nutritionist_id, patient_id, meal_id)
+    if not meal:
+        return None
+
+    # Reuse patient-id ownership for nutrition query (ownership already validated above)
+    nutrition_data = await get_meal_nutrition(session, meal_id, patient_id)
 
     nutrients = None
     if nutrition_data and nutrition_data.get("ingredients"):

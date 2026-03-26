@@ -6,6 +6,7 @@ CONSTRAINTS = [
     "CREATE CONSTRAINT dish_name_unique IF NOT EXISTS FOR (d:Dish) REQUIRE d.name IS UNIQUE",
     "CREATE CONSTRAINT ingredient_name_unique IF NOT EXISTS FOR (i:Ingredient) REQUIRE i.name IS UNIQUE",
     "CREATE CONSTRAINT day_date_unique IF NOT EXISTS FOR (d:Day) REQUIRE d.date IS UNIQUE",
+    "CREATE CONSTRAINT comment_id_unique IF NOT EXISTS FOR (c:Comment) REQUIRE c.id IS UNIQUE",
     # TACO nutrition data
     "CREATE CONSTRAINT food_taco_id_unique IF NOT EXISTS FOR (f:Food) REQUIRE f.taco_id IS UNIQUE",
     "CREATE CONSTRAINT food_category_name_unique IF NOT EXISTS FOR (fc:FoodCategory) REQUIRE fc.name IS UNIQUE",

@@ -34,4 +34,7 @@ export const nutritionistApi = {
 
   linkPatient: (patientId: string) =>
     apiClient.post(`/nutritionist/patients/${patientId}/link`),
+
+  linkPatientByEmail: (email: string) =>
+    apiClient.post('/nutritionist/patients/link-by-email', { email }).then((r) => r.data),
 }

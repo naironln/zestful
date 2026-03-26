@@ -10,7 +10,7 @@ import type { User } from '@/types/user'
 
 export default function NutritionistPage() {
   const queryClient = useQueryClient()
-  const [patientId, setPatientId] = useState('')
+  const [email, setEmail] = useState('')
 
   const { data: patients = [], isLoading } = useQuery<User[]>({
     queryKey: ['nutritionist', 'patients'],
@@ -18,10 +18,10 @@ export default function NutritionistPage() {
   })
 
   const linkMutation = useMutation({
-    mutationFn: () => nutritionistApi.linkPatient(patientId.trim()),
+    mutationFn: () => nutritionistApi.linkPatientByEmail(email.trim()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['nutritionist', 'patients'] })
-      setPatientId('')
+      setEmail('')
     },
   })
 
@@ -39,17 +39,19 @@ export default function NutritionistPage() {
         </CardHeader>
         <CardContent>
           <p className="mb-3 text-sm text-gray-500">
-            Insira o ID do paciente para ter acesso aos dados alimentares dele.
+            Insira o e-mail do paciente para ter acesso aos dados alimentares dele.
           </p>
           <div className="flex gap-2">
             <Input
-              placeholder="ID do paciente"
-              value={patientId}
-              onChange={(e) => setPatientId(e.target.value)}
+              type="email"
+              placeholder="email@paciente.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && email.trim() && linkMutation.mutate()}
             />
             <Button
               onClick={() => linkMutation.mutate()}
-              disabled={!patientId.trim() || linkMutation.isPending}
+              disabled={!email.trim() || linkMutation.isPending}
               className="gap-2 shrink-0"
             >
               <UserPlus className="h-4 w-4" />
@@ -57,7 +59,7 @@ export default function NutritionistPage() {
             </Button>
           </div>
           {linkMutation.isError && (
-            <p className="mt-2 text-sm text-red-600">Paciente não encontrado.</p>
+            <p className="mt-2 text-sm text-red-600">Paciente não encontrado com esse e-mail.</p>
           )}
           {linkMutation.isSuccess && (
             <p className="mt-2 text-sm text-green-600">Paciente vinculado!</p>
