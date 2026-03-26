@@ -1,10 +1,14 @@
 """
 Migration: correct timezone offset on existing MealEntry nodes.
 
-Before this fix, eaten_at was stored with the wrong timezone assumption
-(EXIF local time was treated as UTC, adding 3h). This script subtracts
-3 hours from every MealEntry.eaten_at and recalculates the ON_DAY
-relationship when the date changes.
+Before this fix, eaten_at was stored with Brasília local time incorrectly
+labeled as UTC (e.g. 07:15 Brasília stored as 07:15+00:00 instead of
+10:15+00:00). The frontend then converted UTC→Brasília, subtracting 3h,
+so 07:15 displayed as 04:15.
+
+This script adds 3 hours to every MealEntry.eaten_at so that the stored
+value becomes correct UTC, and recalculates the ON_DAY relationship using
+the Brasília date when the calendar date changes.
 
 Usage:
     cd backend
@@ -12,13 +16,15 @@ Usage:
 """
 
 import asyncio
-from datetime import timedelta
+from datetime import timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from neo4j import AsyncGraphDatabase
 
 from app.config import settings
 
-OFFSET = timedelta(hours=3)  # subtract 3h (UTC → GMT-3)
+OFFSET = timedelta(hours=3)  # add 3h: local-time-as-UTC → correct UTC
+BRASILIA = ZoneInfo("America/Sao_Paulo")
 
 
 async def migrate() -> None:
@@ -52,9 +58,12 @@ async def migrate() -> None:
             else:
                 eaten_at_native = eaten_at
 
-            corrected = eaten_at_native - OFFSET
-            old_date = eaten_at_native.date()
-            new_date = corrected.date()
+            corrected = eaten_at_native + OFFSET
+            # Dates must use Brasília timezone, not UTC
+            if corrected.tzinfo is None:
+                corrected = corrected.replace(tzinfo=timezone.utc)
+            old_date = eaten_at_native.astimezone(BRASILIA).date()
+            new_date = corrected.astimezone(BRASILIA).date()
 
             corrected_iso = corrected.isoformat()
             new_date_iso = new_date.isoformat()
