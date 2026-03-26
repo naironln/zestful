@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { addMonths, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import MealCard from '@/components/meals/MealCard'
 import StatsPanel from '@/components/stats/StatsPanel'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import type { MealEntry } from '@/types/meal'
 
 export default function MonthViewPage() {
   const navigate = useNavigate()
@@ -30,6 +31,16 @@ export default function MonthViewPage() {
     queryKey: ['meals', startStr, endStr],
     queryFn: () => mealsApi.list({ start: startStr, end: endStr }),
   })
+
+  const groupedMeals = useMemo(() => {
+    const map = new Map<string, MealEntry[]>()
+    for (const meal of meals) {
+      const key = formatInBrasilia(meal.eaten_at, 'yyyy-MM-dd')
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(meal)
+    }
+    return map
+  }, [meals])
 
   const { data: stats } = useQuery({
     queryKey: ['stats', 'month', year, monthNum],
@@ -63,17 +74,28 @@ export default function MonthViewPage() {
           {meals.length === 0 ? (
             <p className="py-4 text-center text-sm text-gray-400">Sem refeições nesse mês.</p>
           ) : (
-            meals.map((meal) => (
-              <MealCard
-                key={meal.id}
-                meal={meal}
-                onClick={() => navigate(`/meals/${meal.id}`)}
-                onDelete={() => {
-                  if (!window.confirm('Excluir esta refeição?')) return
-                  deleteMeal.mutate(meal.id)
-                }}
-              />
-            ))
+            Array.from(groupedMeals.entries()).map(([dateKey, dayMeals]) => {
+              const dayLabel = formatInBrasilia(dateKey, "EEEE - dd/MM/yyyy", { locale: ptBR })
+              const dayLabelCap = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1)
+              return (
+                <div key={dateKey} className="space-y-3">
+                  <h3 className="text-sm font-semibold text-gray-500 pt-2 border-t first:border-t-0 first:pt-0">
+                    {dayLabelCap}
+                  </h3>
+                  {dayMeals.map((meal) => (
+                    <MealCard
+                      key={meal.id}
+                      meal={meal}
+                      onClick={() => navigate(`/meals/${meal.id}`)}
+                      onDelete={() => {
+                        if (!window.confirm('Excluir esta refeição?')) return
+                        deleteMeal.mutate(meal.id)
+                      }}
+                    />
+                  ))}
+                </div>
+              )
+            })
           )}
         </CardContent>
       </Card>

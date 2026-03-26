@@ -1,0 +1,38 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "docker-compose-all",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": ["compose", "up", "--build"],
+      "port": 5173,
+      "autoPort": false
+    },
+    {
+      "name": "frontend-vite",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "frontend"],
+      "port": 5173,
+      "autoPort": false
+    },
+    {
+      "name": "frontend-vite-worktree",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "frontend", "--", "--port", "5174"],
+      "port": 5174,
+      "autoPort": false
+    },
+    {
+      "name": "backend-fastapi",
+      "runtimeExecutable": "uvicorn",
+      "runtimeArgs": ["app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"],
+      "port": 8000
+    },
+    {
+      "name": "neo4j",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": ["compose", "up", "neo4j"],
+      "port": 7474
+    }
+  ]
+}
