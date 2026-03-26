@@ -42,7 +42,7 @@ def _extract_exif_datetime(image_bytes: bytes) -> datetime | None:
         for tag_id, value in exif_data.items():
             tag = ExifTags.TAGS.get(tag_id, "")
             if tag == "DateTimeOriginal":
-                return datetime.strptime(value, "%Y:%m:%d %H:%M:%S").replace(tzinfo=timezone.utc)
+                return datetime.strptime(value, "%Y:%m:%d %H:%M:%S").replace(tzinfo=BRASILIA)
     except Exception:
         pass
     return None
@@ -123,9 +123,10 @@ async def upload_meal(
 
     # Determine when the meal was eaten
     if eaten_at_override:
-        eaten_at = datetime.fromisoformat(eaten_at_override).replace(tzinfo=timezone.utc)
+        dt = datetime.fromisoformat(eaten_at_override)
+        eaten_at = dt if dt.tzinfo is not None else dt.replace(tzinfo=BRASILIA)
     else:
-        eaten_at = _extract_exif_datetime(image_bytes) or datetime.now(timezone.utc)
+        eaten_at = _extract_exif_datetime(image_bytes) or datetime.now(BRASILIA)
 
     # Analyze with Claude
     analysis = await analyze_meal_image(image_bytes, media_type)
