@@ -1,5 +1,5 @@
 import { apiClient } from './client'
-import type { MealEntry } from '@/types/meal'
+import type { MealEntry, MealDetail } from '@/types/meal'
 
 export const mealsApi = {
   upload: (formData: FormData) =>
@@ -15,6 +15,15 @@ export const mealsApi = {
 
   patch: (id: string, data: { meal_type?: string; notes?: string }) =>
     apiClient.patch<MealEntry>(`/meals/${id}`, data).then((r) => r.data),
+
+  correct: (id: string, correction: string) =>
+    apiClient.post<MealEntry>(`/meals/${id}/correct`, { correction }).then((r) => r.data),
+
+  analyzeNutrition: (id: string) =>
+    apiClient.post<MealDetail>(`/meals/${id}/analyze-nutrition`).then((r) => r.data),
+
+  getDetail: (id: string) =>
+    apiClient.get<MealDetail>(`/meals/${id}/detail`).then((r) => r.data),
 
   delete: (id: string) =>
     apiClient.delete(`/meals/${id}`),

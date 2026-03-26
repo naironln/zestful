@@ -7,6 +7,7 @@ import DashboardPage from '@/pages/DashboardPage'
 import WeekViewPage from '@/pages/WeekViewPage'
 import MonthViewPage from '@/pages/MonthViewPage'
 import UploadPage from '@/pages/UploadPage'
+import MealDetailPage from '@/pages/MealDetailPage'
 import NutritionistPage from '@/pages/NutritionistPage'
 import PatientDetailPage from '@/pages/PatientDetailPage'
 
@@ -37,6 +38,7 @@ export default function App() {
                 <Route path="/week" element={<WeekViewPage />} />
                 <Route path="/month" element={<MonthViewPage />} />
                 <Route path="/upload" element={<UploadPage />} />
+                <Route path="/meals/:mealId" element={<MealDetailPage />} />
                 <Route
                   path="/nutritionist"
                   element={

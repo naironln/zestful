@@ -1,8 +1,10 @@
 import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Upload, CheckCircle, Image as ImageIcon } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Upload, CheckCircle, Image as ImageIcon, FlaskConical } from 'lucide-react'
 import { mealsApi } from '@/api/meals'
+import { BASE_URL } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import MealTypeTag from '@/components/meals/MealTypeTag'
 import type { MealEntry, MealType } from '@/types/meal'
@@ -17,11 +19,13 @@ const MEAL_LABELS: Record<MealType, string> = {
 
 export default function UploadPage() {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [preview, setPreview] = useState<string | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [notes, setNotes] = useState('')
   const [result, setResult] = useState<MealEntry | null>(null)
   const [overrideType, setOverrideType] = useState<MealType | null>(null)
+  const [correction, setCorrection] = useState('')
 
   const onDrop = useCallback((accepted: File[]) => {
     const f = accepted[0]
@@ -60,12 +64,30 @@ export default function UploadPage() {
     },
   })
 
+  const correctionMutation = useMutation({
+    mutationFn: () => mealsApi.correct(result!.id, correction),
+    onSuccess: (data) => {
+      setResult(data)
+      setCorrection('')
+      queryClient.invalidateQueries({ queryKey: ['meals'] })
+    },
+  })
+
+  const nutritionMutation = useMutation({
+    mutationFn: () => mealsApi.analyzeNutrition(result!.id),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['meals'] })
+      navigate(`/meals/${result!.id}`)
+    },
+  })
+
   const reset = () => {
     setFile(null)
     setPreview(null)
     setResult(null)
     setNotes('')
     setOverrideType(null)
+    setCorrection('')
   }
 
   return (
@@ -138,7 +160,7 @@ export default function UploadPage() {
 
           {result.image_url && (
             <img
-              src={result.image_url}
+              src={result.image_url.startsWith('http') ? result.image_url : `${BASE_URL}${result.image_url}`}
               alt={result.dish_name}
               className="w-full rounded-xl object-cover max-h-52"
             />
@@ -175,6 +197,41 @@ export default function UploadPage() {
               Confiança da IA: {Math.round((result.confidence ?? 0) * 100)}%
             </p>
           )}
+
+          <div className="border-t pt-4 space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Corrigir identificação</label>
+            <textarea
+              value={correction}
+              onChange={(e) => setCorrection(e.target.value)}
+              rows={2}
+              placeholder="Ex: não é creme de abóbora, são ovos mexidos. Não tem açafrão da terra..."
+              className="w-full rounded-lg border border-input px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+            {correctionMutation.isError && (
+              <p className="text-sm text-red-600">Erro ao corrigir. Tente novamente.</p>
+            )}
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => correctionMutation.mutate()}
+              disabled={!correction.trim() || correctionMutation.isPending}
+            >
+              {correctionMutation.isPending ? 'Corrigindo...' : 'Corrigir'}
+            </Button>
+          </div>
+
+          {nutritionMutation.isError && (
+            <p className="text-sm text-red-600">Erro ao analisar nutrientes. Tente novamente.</p>
+          )}
+
+          <Button
+            className="w-full gap-2"
+            onClick={() => nutritionMutation.mutate()}
+            disabled={nutritionMutation.isPending}
+          >
+            <FlaskConical className="h-4 w-4" />
+            {nutritionMutation.isPending ? 'Estimando porções e nutrientes...' : 'Analisar nutrientes'}
+          </Button>
 
           <Button variant="outline" className="w-full" onClick={reset}>
             Registrar outra refeição

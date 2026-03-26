@@ -20,13 +20,12 @@ async def create_meal_entry(session: AsyncSession, data: dict) -> dict:
         MERGE (day:Day {date: date($date)})
         CREATE (u)-[:LOGGED]->(m)
         CREATE (m)-[:ON_DAY]->(day)
-        WITH m
-        UNWIND $ingredients AS ing_name
-            MERGE (i:Ingredient {name: toLower(ing_name)})
-            MERGE (m)-[:HAS_INGREDIENT]->(i)
-        WITH m
         MERGE (d:Dish {name: toLower($dish_name)})
         MERGE (m)-[:CONTAINS_DISH]->(d)
+        FOREACH (ing_name IN $ingredients |
+            MERGE (i:Ingredient {name: toLower(ing_name)})
+            MERGE (m)-[:HAS_INGREDIENT]->(i)
+        )
         RETURN m
         """,
         **data,
@@ -95,15 +94,109 @@ async def patch_meal(session: AsyncSession, meal_id: str, user_id: str, updates:
     return dict(record["m"]) if record else None
 
 
-async def delete_meal(session: AsyncSession, meal_id: str, user_id: str) -> bool:
+async def apply_meal_correction(
+    session: AsyncSession, meal_id: str, user_id: str, dish_name: str, ingredients: list[str]
+) -> dict | None:
+    """Update dish_name and replace all ingredients for a meal."""
     result = await session.run(
         """
         MATCH (u:User {id: $user_id})-[:LOGGED]->(m:MealEntry {id: $meal_id})
-        DETACH DELETE m
-        RETURN count(m) AS deleted
+        // Remove existing ingredient and dish relationships
+        OPTIONAL MATCH (m)-[ri:HAS_INGREDIENT]->()
+        DELETE ri
+        WITH m
+        OPTIONAL MATCH (m)-[rd:CONTAINS_DISH]->()
+        DELETE rd
+        WITH m
+        SET m.dish_name = $dish_name
+        MERGE (d:Dish {name: toLower($dish_name)})
+        MERGE (m)-[:CONTAINS_DISH]->(d)
+        FOREACH (ing_name IN $ingredients |
+            MERGE (i:Ingredient {name: toLower(ing_name)})
+            MERGE (m)-[:HAS_INGREDIENT]->(i)
+        )
+        RETURN m
+        """,
+        meal_id=meal_id,
+        user_id=user_id,
+        dish_name=dish_name,
+        ingredients=ingredients,
+    )
+    record = await result.single()
+    if not record:
+        return None
+    meal = dict(record["m"])
+    meal["ingredients"] = ingredients
+    return meal
+
+
+async def save_portion_estimates(
+    session: AsyncSession, meal_id: str, user_id: str,
+    portions: list[dict], plate_composition: list[dict],
+) -> bool:
+    """Save grams on HAS_INGREDIENT relationships and plate_composition on MealEntry."""
+    import json
+    # Save plate_composition as JSON string on MealEntry
+    await session.run(
+        """
+        MATCH (u:User {id: $user_id})-[:LOGGED]->(m:MealEntry {id: $meal_id})
+        SET m.plate_composition = $plate_composition,
+            m.nutrition_analyzed = true
+        """,
+        meal_id=meal_id,
+        user_id=user_id,
+        plate_composition=json.dumps(plate_composition, ensure_ascii=False),
+    )
+    # Update grams on each HAS_INGREDIENT relationship
+    for p in portions:
+        await session.run(
+            """
+            MATCH (u:User {id: $user_id})-[:LOGGED]->(m:MealEntry {id: $meal_id})
+            MATCH (m)-[r:HAS_INGREDIENT]->(i:Ingredient {name: toLower($ingredient)})
+            SET r.grams = $grams
+            """,
+            meal_id=meal_id,
+            user_id=user_id,
+            ingredient=p["ingredient"],
+            grams=p["grams"],
+        )
+    return True
+
+
+async def get_meal_full_detail(session: AsyncSession, meal_id: str, user_id: str) -> dict | None:
+    """Get meal with ingredients (including grams) and plate_composition."""
+    result = await session.run(
+        """
+        MATCH (u:User {id: $user_id})-[:LOGGED]->(m:MealEntry {id: $meal_id})
+        OPTIONAL MATCH (m)-[r:HAS_INGREDIENT]->(i:Ingredient)
+        RETURN m,
+            collect({name: i.name, grams: r.grams}) AS ingredients_detail
         """,
         meal_id=meal_id,
         user_id=user_id,
     )
     record = await result.single()
-    return record["deleted"] > 0 if record else False
+    if not record:
+        return None
+    meal = dict(record["m"])
+    meal["ingredients_detail"] = record["ingredients_detail"]
+    return meal
+
+
+async def delete_meal(session: AsyncSession, meal_id: str, user_id: str) -> tuple[bool, str | None]:
+    """Remove meal node; returns (True, image_path) if deleted, (False, None) if not found."""
+    result = await session.run(
+        """
+        MATCH (u:User {id: $user_id})-[:LOGGED]->(m:MealEntry {id: $meal_id})
+        WITH m, m.image_path AS image_path
+        DETACH DELETE m
+        RETURN image_path AS image_path
+        """,
+        meal_id=meal_id,
+        user_id=user_id,
+    )
+    record = await result.single()
+    if not record:
+        return False, None
+    path = record["image_path"]
+    return True, str(path) if path is not None else None

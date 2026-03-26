@@ -67,7 +67,7 @@ async def get_meals_per_day(session: AsyncSession, user_id: str, start: str, end
         MATCH (u:User {id: $user_id})-[:LOGGED]->(m:MealEntry)-[:ON_DAY]->(day:Day)
         WHERE day.date >= date($start) AND day.date <= date($end)
         RETURN toString(day.date) AS date, count(m) AS count
-        ORDER BY day.date
+        ORDER BY date
         """,
         user_id=user_id,
         start=start,

@@ -2,9 +2,17 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from neo4j import AsyncSession
 
 from app.dependencies import get_session, get_current_user
-from app.models.meal import MealEntryOut, MealPatch
-from app.db.queries.meal_queries import patch_meal, delete_meal
-from app.services.meal_service import upload_meal, list_meals, get_meal
+from app.models.meal import MealEntryOut, MealPatch, MealCorrection, MealDetail
+from app.db.queries.meal_queries import patch_meal
+from app.services.meal_service import (
+    upload_meal,
+    list_meals,
+    get_meal,
+    correct_meal,
+    analyze_meal_nutrition,
+    get_meal_detail_full,
+    delete_meal_for_user,
+)
 
 router = APIRouter(prefix="/meals", tags=["meals"])
 
@@ -68,12 +76,49 @@ async def update_meal(
     return _meal_record_to_out(meal)
 
 
+@router.post("/{meal_id}/analyze-nutrition", response_model=MealDetail)
+async def analyze_nutrition_endpoint(
+    meal_id: str,
+    session: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    result = await analyze_meal_nutrition(session, current_user["id"], meal_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Meal not found or image unavailable")
+    return result
+
+
+@router.get("/{meal_id}/detail", response_model=MealDetail)
+async def meal_detail_endpoint(
+    meal_id: str,
+    session: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    result = await get_meal_detail_full(session, current_user["id"], meal_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Meal not found")
+    return result
+
+
+@router.post("/{meal_id}/correct", response_model=MealEntryOut)
+async def correct_meal_endpoint(
+    meal_id: str,
+    data: MealCorrection,
+    session: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    meal = await correct_meal(session, current_user["id"], meal_id, data.correction)
+    if not meal:
+        raise HTTPException(status_code=404, detail="Meal not found")
+    return meal
+
+
 @router.delete("/{meal_id}", status_code=204)
 async def remove_meal(
     meal_id: str,
     session: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
-    deleted = await delete_meal(session, meal_id, current_user["id"])
+    deleted = await delete_meal_for_user(session, current_user["id"], meal_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Meal not found")

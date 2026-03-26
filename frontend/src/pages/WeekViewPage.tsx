@@ -1,7 +1,10 @@
 import { useState } from 'react'
-import { format, startOfWeek, addWeeks, subWeeks } from 'date-fns'
+import { addDays, addWeeks, subWeeks } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { formatInBrasilia, weekStartMondayBrasilia, ymdInBrasilia } from '@/lib/brasilTimezone'
 import { useQuery } from '@tanstack/react-query'
+import { useDeleteMeal } from '@/hooks/useDeleteMeal'
+import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { mealsApi } from '@/api/meals'
 import { statsApi } from '@/api/stats'
@@ -10,17 +13,14 @@ import MealCard from '@/components/meals/MealCard'
 import StatsPanel from '@/components/stats/StatsPanel'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
-function getWeekStart(date: Date) {
-  return startOfWeek(date, { weekStartsOn: 1 }) // Monday
-}
-
 export default function WeekViewPage() {
-  const [weekStart, setWeekStart] = useState(getWeekStart(new Date()))
-  const weekEnd = new Date(weekStart)
-  weekEnd.setDate(weekEnd.getDate() + 6)
+  const navigate = useNavigate()
+  const deleteMeal = useDeleteMeal()
+  const [weekStart, setWeekStart] = useState(() => weekStartMondayBrasilia())
+  const weekEnd = addDays(weekStart, 6)
 
-  const startStr = format(weekStart, 'yyyy-MM-dd')
-  const endStr = format(weekEnd, 'yyyy-MM-dd')
+  const startStr = ymdInBrasilia(weekStart)
+  const endStr = ymdInBrasilia(weekEnd)
 
   const { data: meals = [] } = useQuery({
     queryKey: ['meals', startStr, endStr],
@@ -32,7 +32,7 @@ export default function WeekViewPage() {
     queryFn: () => statsApi.week(startStr),
   })
 
-  const label = `${format(weekStart, "d 'de' MMM", { locale: ptBR })} – ${format(weekEnd, "d 'de' MMM", { locale: ptBR })}`
+  const label = `${formatInBrasilia(weekStart, "d 'de' MMM", { locale: ptBR })} – ${formatInBrasilia(weekEnd, "d 'de' MMM", { locale: ptBR })}`
 
   return (
     <div className="space-y-6">
@@ -62,7 +62,17 @@ export default function WeekViewPage() {
           {meals.length === 0 ? (
             <p className="py-4 text-center text-sm text-gray-400">Sem refeições nessa semana.</p>
           ) : (
-            meals.map((meal) => <MealCard key={meal.id} meal={meal} />)
+            meals.map((meal) => (
+              <MealCard
+                key={meal.id}
+                meal={meal}
+                onClick={() => navigate(`/meals/${meal.id}`)}
+                onDelete={() => {
+                  if (!window.confirm('Excluir esta refeição?')) return
+                  deleteMeal.mutate(meal.id)
+                }}
+              />
+            ))
           )}
         </CardContent>
       </Card>

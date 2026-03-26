@@ -1,6 +1,6 @@
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
-import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { weekdayShortFromYmd } from '@/lib/brasilTimezone'
 import type { DayCount } from '@/types/stats'
 
 export default function MealFrequencyBar({ data }: { data: DayCount[] }) {
@@ -9,7 +9,7 @@ export default function MealFrequencyBar({ data }: { data: DayCount[] }) {
   }
 
   const chartData = data.map((d) => ({
-    date: format(parseISO(d.date), 'EEE', { locale: ptBR }),
+    date: weekdayShortFromYmd(d.date, ptBR),
     count: d.count,
   }))
 

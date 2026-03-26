@@ -6,7 +6,8 @@ class Settings(BaseSettings):
     neo4j_user: str = "neo4j"
     neo4j_password: str = "zestful123"
 
-    anthropic_api_key: str
+    anthropic_api_key: str = ""
+    openai_api_key: str = ""
 
     jwt_secret_key: str
     jwt_algorithm: str = "HS256"

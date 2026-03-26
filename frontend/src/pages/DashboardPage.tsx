@@ -1,7 +1,12 @@
-import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import {
+  currentHourBrasilia,
+  formatInBrasilia,
+  todayYmdBrasilia,
+} from '@/lib/brasilTimezone'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { useDeleteMeal } from '@/hooks/useDeleteMeal'
+import { Link, useNavigate } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { mealsApi } from '@/api/meals'
 import { statsApi } from '@/api/stats'
@@ -10,10 +15,11 @@ import MealCard from '@/components/meals/MealCard'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
-const today = format(new Date(), 'yyyy-MM-dd')
-
 export default function DashboardPage() {
+  const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
+  const deleteMeal = useDeleteMeal()
+  const today = todayYmdBrasilia()
 
   const { data: meals = [], isLoading } = useQuery({
     queryKey: ['meals', today],
@@ -26,13 +32,13 @@ export default function DashboardPage() {
   })
 
   const greeting = () => {
-    const h = new Date().getHours()
+    const h = currentHourBrasilia()
     if (h < 12) return 'Bom dia'
     if (h < 18) return 'Boa tarde'
     return 'Boa noite'
   }
 
-  const dateLabel = format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })
+  const dateLabel = formatInBrasilia(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })
 
   return (
     <div className="space-y-6">
@@ -87,7 +93,15 @@ export default function DashboardPage() {
             </div>
           )}
           {meals.map((meal) => (
-            <MealCard key={meal.id} meal={meal} />
+            <MealCard
+              key={meal.id}
+              meal={meal}
+              onClick={() => navigate(`/meals/${meal.id}`)}
+              onDelete={() => {
+                if (!window.confirm('Excluir esta refeição?')) return
+                deleteMeal.mutate(meal.id)
+              }}
+            />
           ))}
         </CardContent>
       </Card>

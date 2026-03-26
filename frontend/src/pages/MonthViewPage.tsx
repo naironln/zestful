@@ -1,7 +1,15 @@
 import { useState } from 'react'
-import { format, addMonths, subMonths, startOfMonth, endOfMonth } from 'date-fns'
+import { addMonths, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import {
+  formatInBrasilia,
+  monthAnchorBrasilia,
+  monthRangeYmdBrasilia,
+  yearMonthBrasilia,
+} from '@/lib/brasilTimezone'
 import { useQuery } from '@tanstack/react-query'
+import { useDeleteMeal } from '@/hooks/useDeleteMeal'
+import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { mealsApi } from '@/api/meals'
 import { statsApi } from '@/api/stats'
@@ -11,12 +19,12 @@ import StatsPanel from '@/components/stats/StatsPanel'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default function MonthViewPage() {
-  const [month, setMonth] = useState(new Date())
+  const navigate = useNavigate()
+  const deleteMeal = useDeleteMeal()
+  const [month, setMonth] = useState(() => monthAnchorBrasilia())
 
-  const year = month.getFullYear()
-  const monthNum = month.getMonth() + 1
-  const startStr = format(startOfMonth(month), 'yyyy-MM-dd')
-  const endStr = format(endOfMonth(month), 'yyyy-MM-dd')
+  const { startStr, endStr } = monthRangeYmdBrasilia(month)
+  const { year, monthNum } = yearMonthBrasilia(month)
 
   const { data: meals = [] } = useQuery({
     queryKey: ['meals', startStr, endStr],
@@ -28,7 +36,7 @@ export default function MonthViewPage() {
     queryFn: () => statsApi.month(year, monthNum),
   })
 
-  const label = format(month, 'MMMM yyyy', { locale: ptBR })
+  const label = formatInBrasilia(month, 'MMMM yyyy', { locale: ptBR })
 
   return (
     <div className="space-y-6">
@@ -55,7 +63,17 @@ export default function MonthViewPage() {
           {meals.length === 0 ? (
             <p className="py-4 text-center text-sm text-gray-400">Sem refeições nesse mês.</p>
           ) : (
-            meals.map((meal) => <MealCard key={meal.id} meal={meal} />)
+            meals.map((meal) => (
+              <MealCard
+                key={meal.id}
+                meal={meal}
+                onClick={() => navigate(`/meals/${meal.id}`)}
+                onDelete={() => {
+                  if (!window.confirm('Excluir esta refeição?')) return
+                  deleteMeal.mutate(meal.id)
+                }}
+              />
+            ))
           )}
         </CardContent>
       </Card>
