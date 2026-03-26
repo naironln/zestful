@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { format, startOfWeek, addWeeks, subWeeks } from 'date-fns'
+import { addWeeks, subWeeks } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -9,19 +9,16 @@ import { Button } from '@/components/ui/button'
 import MealCard from '@/components/meals/MealCard'
 import StatsPanel from '@/components/stats/StatsPanel'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-
-function getWeekStart(d: Date) {
-  return startOfWeek(d, { weekStartsOn: 1 })
-}
+import { weekStartMondayBrasilia, ymdInBrasilia, formatInBrasilia } from '@/lib/brasilTimezone'
 
 export default function PatientDetailPage() {
   const { patientId } = useParams<{ patientId: string }>()
-  const [weekStart, setWeekStart] = useState(getWeekStart(new Date()))
+  const [weekStart, setWeekStart] = useState(weekStartMondayBrasilia())
 
   const weekEnd = new Date(weekStart)
   weekEnd.setDate(weekEnd.getDate() + 6)
-  const startStr = format(weekStart, 'yyyy-MM-dd')
-  const endStr = format(weekEnd, 'yyyy-MM-dd')
+  const startStr = ymdInBrasilia(weekStart)
+  const endStr = ymdInBrasilia(weekEnd)
 
   const { data: meals = [] } = useQuery({
     queryKey: ['nutritionist', 'patient', patientId, 'meals', startStr],
@@ -33,7 +30,7 @@ export default function PatientDetailPage() {
     queryFn: () => nutritionistApi.patientStatsWeek(patientId!, startStr),
   })
 
-  const label = `${format(weekStart, "d 'de' MMM", { locale: ptBR })} – ${format(weekEnd, "d 'de' MMM", { locale: ptBR })}`
+  const label = `${formatInBrasilia(weekStart, "d 'de' MMM", { locale: ptBR })} – ${formatInBrasilia(weekEnd, "d 'de' MMM", { locale: ptBR })}`
 
   return (
     <div className="space-y-6">

@@ -1,4 +1,3 @@
-import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
@@ -9,8 +8,9 @@ import { useAuthStore } from '@/store/authStore'
 import MealCard from '@/components/meals/MealCard'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { todayYmdBrasilia, currentHourBrasilia, formatInBrasilia } from '@/lib/brasilTimezone'
 
-const today = format(new Date(), 'yyyy-MM-dd')
+const today = todayYmdBrasilia()
 
 export default function DashboardPage() {
   const user = useAuthStore((s) => s.user)
@@ -26,13 +26,13 @@ export default function DashboardPage() {
   })
 
   const greeting = () => {
-    const h = new Date().getHours()
+    const h = currentHourBrasilia()
     if (h < 12) return 'Bom dia'
     if (h < 18) return 'Boa tarde'
     return 'Boa noite'
   }
 
-  const dateLabel = format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })
+  const dateLabel = formatInBrasilia(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })
 
   return (
     <div className="space-y-6">

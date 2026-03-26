@@ -1,8 +1,7 @@
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 import { Utensils } from 'lucide-react'
 import type { MealEntry } from '@/types/meal'
 import MealTypeTag from './MealTypeTag'
+import { formatInBrasilia } from '@/lib/brasilTimezone'
 
 interface MealCardProps {
   meal: MealEntry
@@ -10,7 +9,7 @@ interface MealCardProps {
 }
 
 export default function MealCard({ meal, onClick }: MealCardProps) {
-  const time = format(new Date(meal.eaten_at), 'HH:mm', { locale: ptBR })
+  const time = formatInBrasilia(meal.eaten_at, 'HH:mm')
 
   return (
     <div

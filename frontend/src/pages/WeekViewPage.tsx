@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { format, startOfWeek, addWeeks, subWeeks } from 'date-fns'
+import { addWeeks, subWeeks } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -9,18 +9,15 @@ import { Button } from '@/components/ui/button'
 import MealCard from '@/components/meals/MealCard'
 import StatsPanel from '@/components/stats/StatsPanel'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-
-function getWeekStart(date: Date) {
-  return startOfWeek(date, { weekStartsOn: 1 }) // Monday
-}
+import { weekStartMondayBrasilia, ymdInBrasilia, formatInBrasilia } from '@/lib/brasilTimezone'
 
 export default function WeekViewPage() {
-  const [weekStart, setWeekStart] = useState(getWeekStart(new Date()))
+  const [weekStart, setWeekStart] = useState(weekStartMondayBrasilia())
   const weekEnd = new Date(weekStart)
   weekEnd.setDate(weekEnd.getDate() + 6)
 
-  const startStr = format(weekStart, 'yyyy-MM-dd')
-  const endStr = format(weekEnd, 'yyyy-MM-dd')
+  const startStr = ymdInBrasilia(weekStart)
+  const endStr = ymdInBrasilia(weekEnd)
 
   const { data: meals = [] } = useQuery({
     queryKey: ['meals', startStr, endStr],
@@ -32,7 +29,7 @@ export default function WeekViewPage() {
     queryFn: () => statsApi.week(startStr),
   })
 
-  const label = `${format(weekStart, "d 'de' MMM", { locale: ptBR })} – ${format(weekEnd, "d 'de' MMM", { locale: ptBR })}`
+  const label = `${formatInBrasilia(weekStart, "d 'de' MMM", { locale: ptBR })} – ${formatInBrasilia(weekEnd, "d 'de' MMM", { locale: ptBR })}`
 
   return (
     <div className="space-y-6">

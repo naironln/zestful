@@ -1,6 +1,6 @@
 import uuid
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 from PIL import Image, ExifTags
@@ -14,6 +14,8 @@ from app.models.meal import MealEntryOut
 
 SUPPORTED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic"}
 
+BRASILIA_TZ = timezone(timedelta(hours=-3))
+
 
 def _extract_exif_datetime(image_bytes: bytes) -> datetime | None:
     try:
@@ -25,7 +27,7 @@ def _extract_exif_datetime(image_bytes: bytes) -> datetime | None:
         for tag_id, value in exif_data.items():
             tag = ExifTags.TAGS.get(tag_id, "")
             if tag == "DateTimeOriginal":
-                return datetime.strptime(value, "%Y:%m:%d %H:%M:%S").replace(tzinfo=timezone.utc)
+                return datetime.strptime(value, "%Y:%m:%d %H:%M:%S").replace(tzinfo=BRASILIA_TZ)
     except Exception:
         pass
     return None
@@ -78,9 +80,12 @@ async def upload_meal(
 
     # Determine when the meal was eaten
     if eaten_at_override:
-        eaten_at = datetime.fromisoformat(eaten_at_override).replace(tzinfo=timezone.utc)
+        dt = datetime.fromisoformat(eaten_at_override)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=BRASILIA_TZ)
+        eaten_at = dt
     else:
-        eaten_at = _extract_exif_datetime(image_bytes) or datetime.now(timezone.utc)
+        eaten_at = _extract_exif_datetime(image_bytes) or datetime.now(BRASILIA_TZ)
 
     # Analyze with Claude
     analysis = await analyze_meal_image(image_bytes, media_type)
@@ -100,7 +105,7 @@ async def upload_meal(
             "meal_type": analysis.meal_type,
             "dish_name": analysis.dish_name,
             "eaten_at": eaten_at.isoformat(),
-            "date": eaten_at.date().isoformat(),
+            "date": eaten_at.astimezone(BRASILIA_TZ).date().isoformat(),
             "image_path": image_path,
             "raw_llm_response": analysis.model_dump_json(),
             "notes": notes or "",

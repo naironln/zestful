@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { format, addMonths, subMonths, startOfMonth, endOfMonth } from 'date-fns'
+import { addMonths, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -9,14 +9,14 @@ import { Button } from '@/components/ui/button'
 import MealCard from '@/components/meals/MealCard'
 import StatsPanel from '@/components/stats/StatsPanel'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { monthAnchorBrasilia, monthRangeYmdBrasilia, formatInBrasilia } from '@/lib/brasilTimezone'
 
 export default function MonthViewPage() {
-  const [month, setMonth] = useState(new Date())
+  const [month, setMonth] = useState(monthAnchorBrasilia())
 
   const year = month.getFullYear()
   const monthNum = month.getMonth() + 1
-  const startStr = format(startOfMonth(month), 'yyyy-MM-dd')
-  const endStr = format(endOfMonth(month), 'yyyy-MM-dd')
+  const { startStr, endStr } = monthRangeYmdBrasilia(month)
 
   const { data: meals = [] } = useQuery({
     queryKey: ['meals', startStr, endStr],
@@ -28,7 +28,7 @@ export default function MonthViewPage() {
     queryFn: () => statsApi.month(year, monthNum),
   })
 
-  const label = format(month, 'MMMM yyyy', { locale: ptBR })
+  const label = formatInBrasilia(month, 'MMMM yyyy', { locale: ptBR })
 
   return (
     <div className="space-y-6">
