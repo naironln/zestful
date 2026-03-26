@@ -1,0 +1,53 @@
+# Produção na AWS (EC2): uma entrada HTTP (frontend + proxy /api → backend).
+# Na EC2: copie .env (não versionado), defina NEO4J_PASSWORD e segredos, depois:
+#   docker compose -f docker-compose.prod.yml up -d --build
+
+services:
+  neo4j:
+    image: neo4j:5.18-community
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?defina NEO4J_PASSWORD no .env}
+      NEO4J_server_memory_heap_initial__size: 512m
+      NEO4J_server_memory_heap_max__size: 1G
+      NEO4J_server_memory_pagecache_size: 512M
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NEO4J_URI: bolt://neo4j:7687
+    volumes:
+      - meal_images:/app/media
+    depends_on:
+      neo4j:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        VITE_API_BASE_URL: /api
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  neo4j_data:
+  neo4j_logs:
+  meal_images:

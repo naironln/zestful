@@ -39,7 +39,11 @@ app = FastAPI(title="Zestful API", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=[
+        o.strip()
+        for o in settings.cors_origins.split(",")
+        if o.strip()
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

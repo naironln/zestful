@@ -15,6 +15,9 @@ class Settings(BaseSettings):
 
     media_dir: str = "/app/media"
 
+    # Lista separada por vírgula (produção na AWS / domínio próprio)
+    cors_origins: str = "http://localhost:5173,http://localhost:3000"
+
     class Config:
         env_file = ".env"
 

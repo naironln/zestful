@@ -2,6 +2,10 @@
 .env
 .env.local
 
+# SSH keys (never commit — use ~/.ssh/)
+github-personal
+github-personal.pub
+
 # Python
 __pycache__/
 *.py[cod]
