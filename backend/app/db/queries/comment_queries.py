@@ -4,6 +4,16 @@ from neo4j import AsyncSession
 from fastapi import HTTPException
 
 
+def _normalize_comment(c: dict, nutritionist_name: str) -> dict:
+    """Convert Neo4j DateTime fields to Python datetime and fill defaults."""
+    for field in ("created_at", "updated_at"):
+        if hasattr(c.get(field), "to_native"):
+            c[field] = c[field].to_native()
+    c["nutritionist_name"] = nutritionist_name
+    c.setdefault("week_start", None)
+    return c
+
+
 async def create_meal_comment(
     session: AsyncSession,
     nutritionist_id: str,
@@ -37,9 +47,7 @@ async def create_meal_comment(
     record = await result.single()
     if not record:
         raise HTTPException(status_code=404, detail="Meal not found or access denied")
-    c = dict(record["c"])
-    c["nutritionist_name"] = record["nutritionist_name"]
-    return c
+    return _normalize_comment(dict(record["c"]), record["nutritionist_name"])
 
 
 async def create_week_comment(
@@ -74,9 +82,7 @@ async def create_week_comment(
     record = await result.single()
     if not record:
         raise HTTPException(status_code=404, detail="Patient not found or access denied")
-    c = dict(record["c"])
-    c["nutritionist_name"] = record["nutritionist_name"]
-    return c
+    return _normalize_comment(dict(record["c"]), record["nutritionist_name"])
 
 
 async def get_meal_comments(
@@ -102,13 +108,7 @@ async def get_meal_comments(
         viewer_id=viewer_id,
     )
     records = await result.data()
-    comments = []
-    for r in records:
-        c = dict(r["c"])
-        c["nutritionist_name"] = r["nutritionist_name"]
-        c.setdefault("week_start", None)
-        comments.append(c)
-    return comments
+    return [_normalize_comment(dict(r["c"]), r["nutritionist_name"]) for r in records]
 
 
 async def get_week_comments(
@@ -136,12 +136,7 @@ async def get_week_comments(
         viewer_id=viewer_id,
     )
     records = await result.data()
-    comments = []
-    for r in records:
-        c = dict(r["c"])
-        c["nutritionist_name"] = r["nutritionist_name"]
-        comments.append(c)
-    return comments
+    return [_normalize_comment(dict(r["c"]), r["nutritionist_name"]) for r in records]
 
 
 async def update_comment(
@@ -164,10 +159,7 @@ async def update_comment(
     record = await result.single()
     if not record:
         raise HTTPException(status_code=404, detail="Comment not found or access denied")
-    c = dict(record["c"])
-    c["nutritionist_name"] = record["nutritionist_name"]
-    c.setdefault("week_start", None)
-    return c
+    return _normalize_comment(dict(record["c"]), record["nutritionist_name"])
 
 
 async def delete_comment(

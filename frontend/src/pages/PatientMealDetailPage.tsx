@@ -259,7 +259,7 @@ export default function PatientMealDetailPage() {
         <CardContent>
           <CommentSection
             comments={comments}
-            onAdd={(content) => addComment.mutate(content)}
+            onAdd={(content) => addComment.mutateAsync(content)}
             onEdit={(id, content) => editComment.mutate({ id, content })}
             onDelete={(id) => {
               if (!window.confirm('Excluir este comentário?')) return

@@ -92,7 +92,7 @@ export default function PatientDetailPage() {
         <CardContent>
           <CommentSection
             comments={weekComments}
-            onAdd={(content) => addWeekComment.mutate(content)}
+            onAdd={(content) => addWeekComment.mutateAsync(content)}
             onEdit={(id, content) => editWeekComment.mutate({ id, content })}
             onDelete={(id) => {
               if (!window.confirm('Excluir este comentário?')) return

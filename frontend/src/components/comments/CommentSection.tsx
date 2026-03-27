@@ -7,7 +7,7 @@ import type { Comment } from '@/types/comment'
 
 interface CommentSectionProps {
   comments: Comment[]
-  onAdd?: (content: string) => void
+  onAdd?: (content: string) => Promise<void> | void
   onEdit?: (id: string, content: string) => void
   onDelete?: (id: string) => void
   isLoading?: boolean
@@ -26,11 +26,15 @@ export default function CommentSection({
 
   const isEditable = !!onAdd
 
-  function handleAdd() {
+  async function handleAdd() {
     const trimmed = newText.trim()
     if (!trimmed) return
-    onAdd!(trimmed)
-    setNewText('')
+    try {
+      await onAdd!(trimmed)
+      setNewText('')
+    } catch {
+      // Keep text so the user can retry
+    }
   }
 
   function startEdit(comment: Comment) {
