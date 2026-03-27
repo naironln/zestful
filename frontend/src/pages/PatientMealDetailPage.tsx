@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ptBR } from 'date-fns/locale'
 import { formatInBrasilia } from '@/lib/brasilTimezone'
 import { ArrowLeft, Utensils, Scale } from 'lucide-react'
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { nutritionistCommentsApi } from '@/api/comments'
 import { BASE_URL } from '@/api/client'
 import { Button } from '@/components/ui/button'
@@ -20,6 +20,17 @@ const NUTRIENT_LABELS: Record<string, string> = {
   carbohydrate_g: 'Carboidratos',
   lipid_g: 'Gorduras',
   fiber_g: 'Fibras',
+}
+
+function CustomTooltip({ active, payload }: any) {
+  if (!active || !payload?.[0]) return null
+  const { name, value } = payload[0].payload
+  return (
+    <div className="rounded-xl border border-warm-gray-200 bg-white px-3 py-2 shadow-lg dark:border-warm-gray-700 dark:bg-warm-gray-800">
+      <p className="text-sm font-medium text-warm-gray-900 dark:text-warm-gray-100">{name}</p>
+      <p className="text-xs text-warm-gray-500 dark:text-warm-gray-400">{value}%</p>
+    </div>
+  )
 }
 
 export default function PatientMealDetailPage() {
@@ -67,7 +78,7 @@ export default function PatientMealDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-4xl py-12 text-center text-base text-gray-400">
+      <div className="mx-auto max-w-4xl py-12 text-center text-base text-warm-gray-400 dark:text-warm-gray-500">
         Carregando detalhes...
       </div>
     )
@@ -76,7 +87,9 @@ export default function PatientMealDetailPage() {
   if (!meal) {
     return (
       <div className="mx-auto max-w-4xl py-12 text-center">
-        <p className="text-base text-gray-400">Refeição não encontrada.</p>
+        <p className="text-base text-warm-gray-400 dark:text-warm-gray-500">
+          Refeição não encontrada.
+        </p>
         <Button variant="link" onClick={() => navigate(-1)} className="mt-2">
           Voltar
         </Button>
@@ -90,7 +103,9 @@ export default function PatientMealDetailPage() {
       : `${BASE_URL}${meal.image_url}`
     : null
 
-  const dateLabel = formatInBrasilia(meal.eaten_at, "EEEE, d 'de' MMMM · HH:mm", { locale: ptBR })
+  const dateLabel = formatInBrasilia(meal.eaten_at, "EEEE, d 'de' MMMM · HH:mm", {
+    locale: ptBR,
+  })
 
   const pieData =
     meal.plate_composition?.map((item, i) => ({
@@ -116,45 +131,58 @@ export default function PatientMealDetailPage() {
         <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <h1 className="flex-1 text-2xl font-bold text-gray-900">Refeição do paciente</h1>
+        <h1 className="flex-1 font-heading text-2xl font-bold text-warm-gray-900 dark:text-warm-gray-50">
+          Refeição do paciente
+        </h1>
       </div>
 
       {/* Photo */}
       {imageUrl ? (
-        <div className="flex justify-center rounded-2xl bg-gray-100">
+        <div className="relative overflow-hidden rounded-2xl bg-warm-gray-100 dark:bg-warm-gray-800">
           <img
             src={imageUrl}
             alt={meal.dish_name}
-            className="mx-auto block h-auto max-h-[min(70vh,36rem)] w-auto max-w-full rounded-2xl"
+            className="mx-auto block h-auto max-h-[min(70vh,36rem)] w-auto max-w-full"
           />
+          <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/20 to-transparent" />
         </div>
       ) : (
-        <div className="flex h-40 items-center justify-center rounded-2xl bg-gray-100">
-          <Utensils className="h-12 w-12 text-gray-300" />
+        <div className="flex h-40 items-center justify-center rounded-2xl bg-warm-gray-100 dark:bg-warm-gray-800">
+          <Utensils className="h-12 w-12 text-warm-gray-300 dark:text-warm-gray-600" />
         </div>
       )}
 
       {/* Dish name + meta */}
       <div>
         <div className="flex items-start justify-between gap-2">
-          <p className="text-xl font-bold capitalize text-gray-900">{meal.dish_name}</p>
+          <p className="font-heading text-xl font-bold capitalize text-warm-gray-900 dark:text-warm-gray-50">
+            {meal.dish_name}
+          </p>
           <MealTypeTag type={meal.meal_type} />
         </div>
-        <p className="mt-1 text-base capitalize text-gray-500">{dateLabel}</p>
+        <p className="mt-1 text-base capitalize text-warm-gray-500 dark:text-warm-gray-400">
+          {dateLabel}
+        </p>
       </div>
 
       {/* Key nutrients */}
       {keyNutrients.length > 0 && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
-          {keyNutrients.map((n) => (
-            <Card key={n.key}>
+          {keyNutrients.map((n, i) => (
+            <Card
+              key={n.key}
+              className="animate-fade-in-up"
+              style={{ animationDelay: `${i * 80}ms`, animationFillMode: 'both' }}
+            >
               <CardContent className="p-4 text-center">
-                <p className="text-xl font-bold text-brand-500">
+                <p className="font-heading text-xl font-bold text-brand-500">
                   {n.key === 'energy_kcal' ? Math.round(n.per_100g) : n.per_100g.toFixed(1)}
                 </p>
-                <p className="mt-1 text-sm leading-tight text-gray-600">
+                <p className="mt-1 text-sm leading-tight text-warm-gray-600 dark:text-warm-gray-400">
                   {NUTRIENT_LABELS[n.key] || n.name}
-                  <span className="block text-xs text-gray-400">{n.unit}</span>
+                  <span className="block text-xs text-warm-gray-400 dark:text-warm-gray-500">
+                    {n.unit}
+                  </span>
                 </p>
               </CardContent>
             </Card>
@@ -179,21 +207,30 @@ export default function PatientMealDetailPage() {
                   outerRadius={85}
                   dataKey="value"
                   paddingAngle={3}
+                  animationDuration={800}
+                  animationEasing="ease-out"
+                  animationBegin={200}
                 >
                   {pieData.map((entry, i) => (
                     <Cell key={i} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip
-                  formatter={(v) => [`${v}%`, '']}
-                  contentStyle={{ fontSize: '0.875rem' }}
-                  labelStyle={{ fontSize: '0.875rem', color: '#374151' }}
-                />
-                <Legend
-                  wrapperStyle={{ fontSize: '0.875rem', paddingTop: 12, color: '#374151' }}
-                />
+                <Tooltip content={<CustomTooltip />} />
               </PieChart>
             </ResponsiveContainer>
+            <div className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1">
+              {pieData.map((d, i) => (
+                <div key={i} className="flex items-center gap-1.5">
+                  <span
+                    className="inline-block h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: d.color }}
+                  />
+                  <span className="text-xs text-warm-gray-600 dark:text-warm-gray-400">
+                    {d.name} ({d.value}%)
+                  </span>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}
@@ -206,12 +243,21 @@ export default function PatientMealDetailPage() {
             Ingredientes
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
-          {meal.ingredients.map((ing) => (
-            <div key={ing.name} className="flex items-center justify-between text-base">
-              <span className="text-gray-700 capitalize">{ing.name}</span>
+        <CardContent className="space-y-0">
+          {meal.ingredients.map((ing, i) => (
+            <div
+              key={ing.name}
+              className={`flex items-center justify-between px-2 py-2 text-base ${
+                i % 2 === 0 ? 'bg-warm-gray-50/50 dark:bg-warm-gray-800/30' : ''
+              } rounded`}
+            >
+              <span className="capitalize text-warm-gray-700 dark:text-warm-gray-300">
+                {ing.name}
+              </span>
               {ing.grams != null && (
-                <span className="text-gray-400 font-medium">{ing.grams}g</span>
+                <span className="font-medium text-warm-gray-400 dark:text-warm-gray-500">
+                  {ing.grams}g
+                </span>
               )}
             </div>
           ))}
@@ -225,11 +271,16 @@ export default function PatientMealDetailPage() {
             <CardTitle className="text-base font-semibold">Nutrientes detalhados</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-1.5">
-              {otherNutrients.map((n) => (
-                <div key={n.key} className="flex items-center justify-between text-base">
-                  <span className="text-gray-600">{n.name}</span>
-                  <span className="text-gray-400">
+            <div className="space-y-0">
+              {otherNutrients.map((n, i) => (
+                <div
+                  key={n.key}
+                  className={`flex items-center justify-between px-2 py-1.5 text-base ${
+                    i % 2 === 0 ? 'bg-warm-gray-50/50 dark:bg-warm-gray-800/30' : ''
+                  } rounded`}
+                >
+                  <span className="text-warm-gray-600 dark:text-warm-gray-400">{n.name}</span>
+                  <span className="text-warm-gray-400 dark:text-warm-gray-500">
                     {n.per_100g.toFixed(1)} {n.unit}
                   </span>
                 </div>
@@ -239,19 +290,19 @@ export default function PatientMealDetailPage() {
         </Card>
       )}
 
-      {/* Patient notes (read-only for nutritionist) */}
+      {/* Patient notes */}
       {meal.notes && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base font-semibold">Notas do paciente</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-base text-gray-600">{meal.notes}</p>
+            <p className="text-base text-warm-gray-600 dark:text-warm-gray-400">{meal.notes}</p>
           </CardContent>
         </Card>
       )}
 
-      {/* Nutritionist comments (editable) */}
+      {/* Nutritionist comments */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base font-semibold">Comentários</CardTitle>

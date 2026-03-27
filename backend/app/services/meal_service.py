@@ -1,10 +1,14 @@
 import uuid
 import os
+import io
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from PIL import Image, ExifTags
+from pillow_heif import register_heif_opener
+
+register_heif_opener()
 from fastapi import UploadFile
 
 from app.config import settings
@@ -122,6 +126,14 @@ async def upload_meal(
     image_bytes = await file.read()
     media_type = file.content_type or "image/jpeg"
 
+    # Convert HEIC/HEIF to JPEG (Claude API doesn't support HEIC)
+    if media_type in ("image/heic", "image/heif"):
+        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        output = io.BytesIO()
+        img.save(output, format="JPEG", quality=85)
+        image_bytes = output.getvalue()
+        media_type = "image/jpeg"
+
     # Determine when the meal was eaten
     if eaten_at_override:
         dt = datetime.fromisoformat(eaten_at_override)
@@ -134,8 +146,11 @@ async def upload_meal(
 
     meal_id = str(uuid.uuid4())
 
-    # Save image
-    suffix = os.path.splitext(file.filename or "photo.jpg")[1] or ".jpg"
+    # Save image (always .jpg when converted from HEIC)
+    if media_type == "image/jpeg" and (file.filename or "").lower().endswith((".heic", ".heif")):
+        suffix = ".jpg"
+    else:
+        suffix = os.path.splitext(file.filename or "photo.jpg")[1] or ".jpg"
     image_path = _save_image(image_bytes, user_id, meal_id, suffix)
 
     # Store in Neo4j

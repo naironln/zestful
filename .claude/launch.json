@@ -17,8 +17,8 @@
     },
     {
       "name": "frontend-vite-worktree",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "frontend", "--", "--port", "5174"],
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": ["-c", "export PATH=/Users/naironlinsnogueira/.nvm/versions/node/v22.13.1/bin:$PATH && npm run dev --prefix frontend -- --port 5174"],
       "port": 5174,
       "autoPort": false
     },
