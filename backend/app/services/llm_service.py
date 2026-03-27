@@ -7,6 +7,7 @@ Model selection per task:
 """
 
 import base64
+import io
 import json
 import logging
 import re
@@ -14,6 +15,7 @@ from dataclasses import dataclass
 
 import anthropic
 import openai
+from PIL import Image
 
 from app.config import settings
 
@@ -49,6 +51,44 @@ def _extract_json(text: str) -> str:
     """Extract JSON object from text that may contain markdown fences."""
     match = re.search(r"\{.*\}", text, re.DOTALL)
     return match.group() if match else text
+
+
+# Claude API base64 limit is 5 MB; target raw bytes well below that (~3.8 MB → ~5.07 MB base64)
+_MAX_IMAGE_BYTES = 3_800_000
+
+
+def _compress_image(image_bytes: bytes) -> bytes:
+    """Resize and recompress image if it exceeds the API size limit."""
+    if len(image_bytes) <= _MAX_IMAGE_BYTES:
+        return image_bytes
+
+    img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+
+    # Downscale to at most 2048×2048 maintaining aspect ratio
+    img.thumbnail((2048, 2048), Image.LANCZOS)
+
+    quality = 85
+    while quality >= 40:
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=quality)
+        compressed = buf.getvalue()
+        if len(compressed) <= _MAX_IMAGE_BYTES:
+            logger.info(
+                "Compressed image from %d to %d bytes (quality=%d)",
+                len(image_bytes), len(compressed), quality,
+            )
+            return compressed
+        quality -= 10
+
+    # Last resort: halve dimensions again
+    img.thumbnail((1024, 1024), Image.LANCZOS)
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=60)
+    compressed = buf.getvalue()
+    logger.warning(
+        "Aggressively compressed image from %d to %d bytes", len(image_bytes), len(compressed)
+    )
+    return compressed
 
 
 # ── Vision call (image → JSON) ─────────────────────────────────────
@@ -120,6 +160,7 @@ async def vision_call(
     prompt: str,
 ) -> dict:
     """Call a vision model (Claude Sonnet → GPT-4o-mini fallback) and return parsed JSON."""
+    image_bytes = _compress_image(image_bytes)
     b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
 
     # Try Claude Sonnet first
