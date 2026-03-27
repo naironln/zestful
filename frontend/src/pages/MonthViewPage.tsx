@@ -10,13 +10,14 @@ import {
 import { useQuery } from '@tanstack/react-query'
 import { useDeleteMeal } from '@/hooks/useDeleteMeal'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, BarChart2 } from 'lucide-react'
 import { mealsApi } from '@/api/meals'
 import { statsApi } from '@/api/stats'
 import { Button } from '@/components/ui/button'
 import MealCard from '@/components/meals/MealCard'
 import StatsPanel from '@/components/stats/StatsPanel'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import EmptyState from '@/components/ui/EmptyState'
 import type { MealEntry } from '@/types/meal'
 
 export default function MonthViewPage() {
@@ -52,12 +53,16 @@ export default function MonthViewPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <h1 className="text-2xl font-bold text-gray-900 flex-1 capitalize">Mês</h1>
+        <h1 className="flex-1 font-heading text-2xl font-bold capitalize text-warm-gray-900 dark:text-warm-gray-50">
+          Mês
+        </h1>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={() => setMonth(subMonths(month, 1))}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm font-medium capitalize text-gray-600 min-w-32 text-center">{label}</span>
+          <span className="min-w-32 text-center text-sm font-medium capitalize text-warm-gray-600 dark:text-warm-gray-400">
+            {label}
+          </span>
           <Button variant="outline" size="icon" onClick={() => setMonth(addMonths(month, 1))}>
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -72,26 +77,35 @@ export default function MonthViewPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           {meals.length === 0 ? (
-            <p className="py-4 text-center text-sm text-gray-400">Sem refeições nesse mês.</p>
+            <EmptyState
+              icon={BarChart2}
+              title="Sem refeições nesse mês"
+              description="As refeições registradas aparecerão aqui."
+            />
           ) : (
             Array.from(groupedMeals.entries()).map(([dateKey, dayMeals]) => {
               const dayLabel = formatInBrasilia(dateKey, "EEEE - dd/MM/yyyy", { locale: ptBR })
               const dayLabelCap = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1)
               return (
                 <div key={dateKey} className="space-y-3">
-                  <h3 className="text-sm font-semibold text-gray-500 pt-2 border-t first:border-t-0 first:pt-0">
+                  <h3 className="border-t border-warm-gray-200 pt-2 text-sm font-semibold text-warm-gray-500 first:border-t-0 first:pt-0 dark:border-warm-gray-700 dark:text-warm-gray-400">
                     {dayLabelCap}
                   </h3>
-                  {dayMeals.map((meal) => (
-                    <MealCard
+                  {dayMeals.map((meal, i) => (
+                    <div
                       key={meal.id}
-                      meal={meal}
-                      onClick={() => navigate(`/meals/${meal.id}`)}
-                      onDelete={() => {
-                        if (!window.confirm('Excluir esta refeição?')) return
-                        deleteMeal.mutate(meal.id)
-                      }}
-                    />
+                      className="animate-fade-in-up"
+                      style={{ animationDelay: `${i * 50}ms`, animationFillMode: 'both' }}
+                    >
+                      <MealCard
+                        meal={meal}
+                        onClick={() => navigate(`/meals/${meal.id}`)}
+                        onDelete={() => {
+                          if (!window.confirm('Excluir esta refeição?')) return
+                          deleteMeal.mutate(meal.id)
+                        }}
+                      />
+                    </div>
                   ))}
                 </div>
               )

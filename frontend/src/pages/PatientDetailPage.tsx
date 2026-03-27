@@ -4,7 +4,7 @@ import { addDays, addWeeks, subWeeks } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { formatInBrasilia, weekStartMondayBrasilia, ymdInBrasilia } from '@/lib/brasilTimezone'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
 import { nutritionistApi } from '@/api/stats'
 import { nutritionistCommentsApi } from '@/api/comments'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,7 @@ import MealCard from '@/components/meals/MealCard'
 import StatsPanel from '@/components/stats/StatsPanel'
 import CommentSection from '@/components/comments/CommentSection'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import EmptyState from '@/components/ui/EmptyState'
 
 export default function PatientDetailPage() {
   const { patientId } = useParams<{ patientId: string }>()
@@ -70,13 +71,25 @@ export default function PatientDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <h1 className="text-2xl font-bold text-gray-900 flex-1">Refeições do paciente</h1>
+        <h1 className="flex-1 font-heading text-2xl font-bold text-warm-gray-900 dark:text-warm-gray-50">
+          Refeições do paciente
+        </h1>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => setWeekStart(subWeeks(weekStart, 1))}>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setWeekStart(subWeeks(weekStart, 1))}
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm font-medium text-gray-600 min-w-40 text-center">{label}</span>
-          <Button variant="outline" size="icon" onClick={() => setWeekStart(addWeeks(weekStart, 1))}>
+          <span className="min-w-40 text-center text-sm font-medium text-warm-gray-600 dark:text-warm-gray-400">
+            {label}
+          </span>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setWeekStart(addWeeks(weekStart, 1))}
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
@@ -84,7 +97,7 @@ export default function PatientDetailPage() {
 
       {stats && <StatsPanel stats={stats} />}
 
-      {/* Week comment section (nutritionist can write) */}
+      {/* Week comment section */}
       <Card>
         <CardHeader>
           <CardTitle>Feedback semanal</CardTitle>
@@ -109,14 +122,25 @@ export default function PatientDetailPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           {meals.length === 0 ? (
-            <p className="py-4 text-center text-sm text-gray-400">Sem refeições nessa semana.</p>
+            <EmptyState
+              icon={CalendarDays}
+              title="Sem refeições nessa semana"
+              description="O paciente ainda não registrou refeições neste período."
+            />
           ) : (
-            meals.map((meal) => (
-              <MealCard
+            meals.map((meal, i) => (
+              <div
                 key={meal.id}
-                meal={meal}
-                onClick={() => navigate(`/nutritionist/patients/${patientId}/meals/${meal.id}`)}
-              />
+                className="animate-fade-in-up"
+                style={{ animationDelay: `${i * 60}ms`, animationFillMode: 'both' }}
+              >
+                <MealCard
+                  meal={meal}
+                  onClick={() =>
+                    navigate(`/nutritionist/patients/${patientId}/meals/${meal.id}`)
+                  }
+                />
+              </div>
             ))
           )}
         </CardContent>
