@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ptBR } from 'date-fns/locale'
 import { formatInBrasilia } from '@/lib/brasilTimezone'
 import { ArrowLeft, Utensils, Scale, Trash2 } from 'lucide-react'
+import NutritionFlagsBadges from '@/components/meals/NutritionFlagsBadges'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { mealsApi } from '@/api/meals'
 import { getMealComments } from '@/api/comments'
@@ -12,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import MealTypeTag from '@/components/meals/MealTypeTag'
 import CommentSection from '@/components/comments/CommentSection'
+import type { MealNutritionFlags } from '@/types/meal'
 
 const PIE_COLORS = ['#10b981', '#f59e0b', '#6366f1', '#ec4899', '#3b82f6']
 
@@ -68,6 +70,13 @@ export default function MealDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['meals'] })
       queryClient.invalidateQueries({ queryKey: ['stats'] })
       navigate('/dashboard')
+    },
+  })
+
+  const flagsMutation = useMutation({
+    mutationFn: (flags: Partial<MealNutritionFlags>) => mealsApi.patch(mealId!, flags),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['meal-detail', mealId] })
     },
   })
 
@@ -185,6 +194,15 @@ export default function MealDetailPage() {
         <p className="mt-1 text-base capitalize text-warm-gray-500 dark:text-warm-gray-400">
           {dateLabel}
         </p>
+        {meal.nutrition_flags && (
+          <div className="mt-3">
+            <NutritionFlagsBadges
+              flags={meal.nutrition_flags}
+              editable
+              onFlagsChange={(flags) => flagsMutation.mutate(flags)}
+            />
+          </div>
+        )}
       </div>
 
       {/* Key nutrients summary */}

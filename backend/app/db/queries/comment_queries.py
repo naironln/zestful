@@ -139,6 +139,43 @@ async def get_week_comments(
     return [_normalize_comment(dict(r["c"]), r["nutritionist_name"]) for r in records]
 
 
+async def get_meal_comments_by_date_range(
+    session: AsyncSession,
+    patient_id: str,
+    start: str,
+    end: str,
+    viewer_id: str,
+) -> dict[str, list[dict]]:
+    """
+    Get all meal comments for a patient's meals in a date range.
+    Returns a dict mapping meal_id -> list of comments.
+    Accessible by the patient or a supervising nutritionist.
+    """
+    result = await session.run(
+        """
+        MATCH (p:User {id: $patient_id})-[:LOGGED]->(m:MealEntry)-[:ON_DAY]->(day:Day)
+        WHERE day.date >= date($start) AND day.date <= date($end)
+        MATCH (c:Comment)-[:ON_MEAL]->(m)
+        MATCH (n:User)-[:WROTE]->(c)
+        WHERE
+            p.id = $viewer_id
+            OR (:User {id: $viewer_id})-[:SUPERVISES]->(p)
+        RETURN m.id AS meal_id, c, n.name AS nutritionist_name
+        ORDER BY c.created_at ASC
+        """,
+        patient_id=patient_id,
+        start=start,
+        end=end,
+        viewer_id=viewer_id,
+    )
+    grouped: dict[str, list[dict]] = {}
+    async for record in result:
+        meal_id = record["meal_id"]
+        comment = _normalize_comment(dict(record["c"]), record["nutritionist_name"])
+        grouped.setdefault(meal_id, []).append(comment)
+    return grouped
+
+
 async def update_comment(
     session: AsyncSession,
     nutritionist_id: str,

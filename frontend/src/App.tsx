@@ -24,6 +24,17 @@ function NutritionistRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+function PatientRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user)
+  if (user?.role === 'nutritionist') return <Navigate to="/nutritionist" replace />
+  return <>{children}</>
+}
+
+function DefaultRedirect() {
+  const user = useAuthStore((s) => s.user)
+  return <Navigate to={user?.role === 'nutritionist' ? '/nutritionist' : '/dashboard'} replace />
+}
+
 export default function App() {
   return (
     <Routes>
@@ -35,11 +46,11 @@ export default function App() {
           <PrivateRoute>
             <AppShell>
               <Routes>
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/week" element={<WeekViewPage />} />
-                <Route path="/month" element={<MonthViewPage />} />
-                <Route path="/upload" element={<UploadPage />} />
-                <Route path="/meals/:mealId" element={<MealDetailPage />} />
+                <Route path="/dashboard" element={<PatientRoute><DashboardPage /></PatientRoute>} />
+                <Route path="/week" element={<PatientRoute><WeekViewPage /></PatientRoute>} />
+                <Route path="/month" element={<PatientRoute><MonthViewPage /></PatientRoute>} />
+                <Route path="/upload" element={<PatientRoute><UploadPage /></PatientRoute>} />
+                <Route path="/meals/:mealId" element={<PatientRoute><MealDetailPage /></PatientRoute>} />
                 <Route
                   path="/nutritionist"
                   element={
@@ -64,7 +75,7 @@ export default function App() {
                     </NutritionistRoute>
                   }
                 />
-                <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                <Route path="*" element={<DefaultRedirect />} />
               </Routes>
             </AppShell>
           </PrivateRoute>

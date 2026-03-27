@@ -1,5 +1,16 @@
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack'
 
+export type MealSource = 'homemade' | 'restaurant' | 'delivery'
+
+export interface MealNutritionFlags {
+  has_vegetables: boolean
+  is_fruit: boolean
+  is_dessert: boolean
+  is_ultra_processed: boolean
+  has_protein: boolean
+  meal_source: MealSource | null
+}
+
 export interface MealEntry {
   id: string
   meal_type: MealType
@@ -10,6 +21,7 @@ export interface MealEntry {
   image_url: string | null
   notes: string | null
   confidence: number | null
+  nutrition_flags: MealNutritionFlags | null
 }
 
 export interface IngredientWithPortion {
@@ -41,4 +53,5 @@ export interface MealDetail {
   confidence: number | null
   plate_composition: PlateComposition[] | null
   nutrients: NutrientValue[] | null
+  nutrition_flags: MealNutritionFlags | null
 }

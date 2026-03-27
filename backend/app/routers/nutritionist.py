@@ -6,7 +6,7 @@ from app.dependencies import get_session, require_nutritionist
 from app.models.meal import MealEntryOut, MealDetail
 from app.models.stats import PeriodStats
 from app.models.user import UserOut
-from app.models.comment import CommentCreate, CommentOut, WeekCommentCreate
+from app.models.comment import CommentCreate, CommentOut, WeekCommentCreate, MealCommentsMap
 from app.db.queries.user_queries import (
     get_patients_for_nutritionist,
     link_patient_to_nutritionist,
@@ -17,6 +17,7 @@ from app.db.queries.comment_queries import (
     create_meal_comment,
     create_week_comment,
     get_meal_comments,
+    get_meal_comments_by_date_range,
     get_week_comments,
     update_comment,
     delete_comment,
@@ -109,6 +110,21 @@ async def patient_stats_month(
 ):
     start, end = month_range(year, month)
     return await build_stats(session, patient_id, start, end, "month")
+
+
+@router.get("/patients/{patient_id}/comments/meals", response_model=MealCommentsMap)
+async def batch_meal_comments(
+    patient_id: str,
+    start: str = Query(...),
+    end: str = Query(...),
+    session: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(require_nutritionist),
+):
+    """Nutritionist: get all meal comments for a patient's meals in a date range."""
+    grouped = await get_meal_comments_by_date_range(
+        session, patient_id, start, end, current_user["id"]
+    )
+    return MealCommentsMap(comments_by_meal=grouped)
 
 
 # ── Comment endpoints ─────────────────────────────────────────────────────────

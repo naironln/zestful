@@ -15,7 +15,13 @@ async def create_meal_entry(session: AsyncSession, data: dict) -> dict:
             image_path: $image_path,
             raw_llm_response: $raw_llm_response,
             notes: $notes,
-            confidence: $confidence
+            confidence: $confidence,
+            has_vegetables: $has_vegetables,
+            is_fruit: $is_fruit,
+            is_dessert: $is_dessert,
+            is_ultra_processed: $is_ultra_processed,
+            has_protein: $has_protein,
+            meal_source: $meal_source
         })
         MERGE (day:Day {date: date($date)})
         CREATE (u)-[:LOGGED]->(m)
@@ -53,14 +59,28 @@ async def get_meal_with_details(session: AsyncSession, meal_id: str, user_id: st
 
 
 async def get_meals_by_range(
-    session: AsyncSession, user_id: str, start: str, end: str, meal_type: str | None = None
+    session: AsyncSession,
+    user_id: str,
+    start: str,
+    end: str,
+    meal_type: str | None = None,
+    nutrition_flags: dict[str, bool | str] | None = None,
 ) -> list[dict]:
-    type_filter = "AND m.meal_type = $meal_type" if meal_type else ""
+    meal_types = [t.strip() for t in meal_type.split(",") if t.strip()] if meal_type else []
+    type_filter = "AND m.meal_type IN $meal_types" if meal_types else ""
+
+    flag_filters = ""
+    flag_params: dict = {}
+    for key, val in (nutrition_flags or {}).items():
+        flag_filters += f" AND m.{key} = ${key}"
+        flag_params[key] = val
+
     result = await session.run(
         f"""
         MATCH (u:User {{id: $user_id}})-[:LOGGED]->(m:MealEntry)-[:ON_DAY]->(day:Day)
         WHERE day.date >= date($start) AND day.date <= date($end)
         {type_filter}
+        {flag_filters}
         OPTIONAL MATCH (m)-[:HAS_INGREDIENT]->(i:Ingredient)
         RETURN m, collect(i.name) AS ingredients, day.date AS date
         ORDER BY m.eaten_at DESC
@@ -68,7 +88,8 @@ async def get_meals_by_range(
         user_id=user_id,
         start=start,
         end=end,
-        meal_type=meal_type,
+        meal_types=meal_types,
+        **flag_params,
     )
     meals = []
     async for record in result:
@@ -95,20 +116,27 @@ async def patch_meal(session: AsyncSession, meal_id: str, user_id: str, updates:
 
 
 async def apply_meal_correction(
-    session: AsyncSession, meal_id: str, user_id: str, dish_name: str, ingredients: list[str]
+    session: AsyncSession, meal_id: str, user_id: str, dish_name: str, ingredients: list[str],
+    nutrition_flags: dict | None = None,
 ) -> dict | None:
-    """Update dish_name and replace all ingredients for a meal."""
+    """Update dish_name, ingredients, and nutrition flags for a meal."""
+    flags = nutrition_flags or {}
     result = await session.run(
         """
         MATCH (u:User {id: $user_id})-[:LOGGED]->(m:MealEntry {id: $meal_id})
-        // Remove existing ingredient and dish relationships
         OPTIONAL MATCH (m)-[ri:HAS_INGREDIENT]->()
         DELETE ri
         WITH m
         OPTIONAL MATCH (m)-[rd:CONTAINS_DISH]->()
         DELETE rd
         WITH m
-        SET m.dish_name = $dish_name
+        SET m.dish_name = $dish_name,
+            m.has_vegetables = $has_vegetables,
+            m.is_fruit = $is_fruit,
+            m.is_dessert = $is_dessert,
+            m.is_ultra_processed = $is_ultra_processed,
+            m.has_protein = $has_protein,
+            m.meal_source = $meal_source
         MERGE (d:Dish {name: toLower($dish_name)})
         MERGE (m)-[:CONTAINS_DISH]->(d)
         FOREACH (ing_name IN $ingredients |
@@ -121,6 +149,12 @@ async def apply_meal_correction(
         user_id=user_id,
         dish_name=dish_name,
         ingredients=ingredients,
+        has_vegetables=flags.get("has_vegetables", False),
+        is_fruit=flags.get("is_fruit", False),
+        is_dessert=flags.get("is_dessert", False),
+        is_ultra_processed=flags.get("is_ultra_processed", False),
+        has_protein=flags.get("has_protein", False),
+        meal_source=flags.get("meal_source"),
     )
     record = await result.single()
     if not record:

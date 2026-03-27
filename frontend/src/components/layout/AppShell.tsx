@@ -18,11 +18,15 @@ import {
   Monitor,
 } from 'lucide-react'
 
-const navItems = [
+const patientNavItems = [
   { to: '/dashboard', label: 'Hoje', icon: LayoutDashboard },
   { to: '/week', label: 'Semana', icon: CalendarDays },
   { to: '/month', label: 'Mês', icon: BarChart2 },
   { to: '/upload', label: 'Registrar', icon: Upload },
+]
+
+const nutritionistNavItems = [
+  { to: '/nutritionist', label: 'Pacientes', icon: Users },
 ]
 
 function ThemeToggle() {
@@ -64,55 +68,32 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {navItems.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            onClick={onNavigate}
-            className={({ isActive }) =>
-              cn(
-                'relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium transition-all duration-200',
-                isActive
-                  ? 'bg-brand-50 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300'
-                  : 'text-warm-gray-600 hover:bg-warm-gray-100 hover:text-warm-gray-900 dark:text-warm-gray-400 dark:hover:bg-warm-gray-800 dark:hover:text-warm-gray-100'
-              )
-            }
-          >
-            {({ isActive }) => (
-              <>
-                {isActive && (
-                  <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-brand-500" />
-                )}
-                <Icon className="h-5 w-5 shrink-0" />
-                {label}
-              </>
-            )}
-          </NavLink>
-        ))}
-
-        {user?.role === 'nutritionist' && (
-          <NavLink
-            to="/nutritionist"
-            onClick={onNavigate}
-            className={({ isActive }) =>
-              cn(
-                'relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium transition-all duration-200',
-                isActive
-                  ? 'bg-brand-50 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300'
-                  : 'text-warm-gray-600 hover:bg-warm-gray-100 hover:text-warm-gray-900 dark:text-warm-gray-400 dark:hover:bg-warm-gray-800 dark:hover:text-warm-gray-100'
-              )
-            }
-          >
-            {({ isActive }) => (
-              <>
-                {isActive && (
-                  <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-brand-500" />
-                )}
-                <Users className="h-5 w-5 shrink-0" />
-                Pacientes
-              </>
-            )}
-          </NavLink>
+        {(user?.role === 'nutritionist' ? nutritionistNavItems : patientNavItems).map(
+          ({ to, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              onClick={onNavigate}
+              className={({ isActive }) =>
+                cn(
+                  'relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium transition-all duration-200',
+                  isActive
+                    ? 'bg-brand-50 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300'
+                    : 'text-warm-gray-600 hover:bg-warm-gray-100 hover:text-warm-gray-900 dark:text-warm-gray-400 dark:hover:bg-warm-gray-800 dark:hover:text-warm-gray-100'
+                )
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-brand-500" />
+                  )}
+                  <Icon className="h-5 w-5 shrink-0" />
+                  {label}
+                </>
+              )}
+            </NavLink>
+          )
         )}
       </nav>
 

@@ -3,9 +3,9 @@ from neo4j import AsyncSession
 
 from app.dependencies import get_session, get_current_user
 from app.models.meal import MealEntryOut, MealPatch, MealCorrection, MealDetail
-from app.models.comment import CommentOut
+from app.models.comment import CommentOut, MealCommentsMap
 from app.db.queries.meal_queries import patch_meal
-from app.db.queries.comment_queries import get_meal_comments, get_week_comments
+from app.db.queries.comment_queries import get_meal_comments, get_week_comments, get_meal_comments_by_date_range
 from app.services.meal_service import (
     upload_meal,
     list_meals,
@@ -42,10 +42,40 @@ async def get_meals(
     start: str,
     end: str,
     meal_type: str | None = None,
+    has_vegetables: bool | None = None,
+    is_fruit: bool | None = None,
+    is_dessert: bool | None = None,
+    is_ultra_processed: bool | None = None,
+    has_protein: bool | None = None,
+    meal_source: str | None = None,
     session: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
-    return await list_meals(session, current_user["id"], start, end, meal_type)
+    flags: dict = {
+        "has_vegetables": has_vegetables,
+        "is_fruit": is_fruit,
+        "is_dessert": is_dessert,
+        "is_ultra_processed": is_ultra_processed,
+        "has_protein": has_protein,
+    }
+    if meal_source:
+        flags["meal_source"] = meal_source
+    nutrition_flags = {k: v for k, v in flags.items() if v is not None} or None
+    return await list_meals(session, current_user["id"], start, end, meal_type, nutrition_flags)
+
+
+@router.get("/comments/meals", response_model=MealCommentsMap)
+async def get_batch_meal_comments(
+    start: str,
+    end: str,
+    session: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    """Patient: get all meal comments for their meals in a date range."""
+    grouped = await get_meal_comments_by_date_range(
+        session, current_user["id"], start, end, current_user["id"]
+    )
+    return MealCommentsMap(comments_by_meal=grouped)
 
 
 @router.get("/comments/week", response_model=list[CommentOut])
@@ -90,6 +120,8 @@ async def update_meal(
     updates = {k: v for k, v in data.model_dump().items() if v is not None}
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
+    if updates.get("meal_source") == "none":
+        updates["meal_source"] = None
     meal = await patch_meal(session, meal_id, current_user["id"], updates)
     if not meal:
         raise HTTPException(status_code=404, detail="Meal not found")

@@ -20,6 +20,11 @@ INDEXES = [
     # TACO indexes
     "CREATE INDEX food_name_idx IF NOT EXISTS FOR (f:Food) ON (f.name)",
     "CREATE INDEX ingredient_mapped IF NOT EXISTS FOR (i:Ingredient) ON (i.mapped)",
+    # Nutrition classification indexes
+    "CREATE INDEX meal_has_vegetables IF NOT EXISTS FOR (m:MealEntry) ON (m.has_vegetables)",
+    "CREATE INDEX meal_is_fruit IF NOT EXISTS FOR (m:MealEntry) ON (m.is_fruit)",
+    "CREATE INDEX meal_is_dessert IF NOT EXISTS FOR (m:MealEntry) ON (m.is_dessert)",
+    "CREATE INDEX meal_is_ultra_processed IF NOT EXISTS FOR (m:MealEntry) ON (m.is_ultra_processed)",
 ]
 
 

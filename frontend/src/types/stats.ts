@@ -20,6 +20,30 @@ export interface TopItem {
   count: number
 }
 
+export interface NutritionFlags {
+  meals_with_vegetables: number
+  fruit_count: number
+  dessert_count: number
+  ultra_processed_count: number
+  meals_with_protein: number
+  homemade_count: number
+  restaurant_count: number
+  delivery_count: number
+}
+
+export interface DayNutritionFlags {
+  date: string
+  total: number
+  vegetables: number
+  fruits: number
+  desserts: number
+  ultra_processed: number
+  protein: number
+  homemade: number
+  restaurant: number
+  delivery: number
+}
+
 export interface PeriodStats {
   period: string
   date_range: DateRange
@@ -28,4 +52,6 @@ export interface PeriodStats {
   meals_per_day: DayCount[]
   top_dishes: TopItem[]
   top_ingredients: TopItem[]
+  nutrition_flags: NutritionFlags
+  nutrition_flags_per_day: DayNutritionFlags[]
 }

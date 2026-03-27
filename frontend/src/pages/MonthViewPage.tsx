@@ -13,8 +13,10 @@ import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, BarChart2 } from 'lucide-react'
 import { mealsApi } from '@/api/meals'
 import { statsApi } from '@/api/stats'
+import { getBatchMealComments } from '@/api/comments'
 import { Button } from '@/components/ui/button'
 import MealCard from '@/components/meals/MealCard'
+import MealFilters, { type MealFilterState } from '@/components/meals/MealFilters'
 import StatsPanel from '@/components/stats/StatsPanel'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import EmptyState from '@/components/ui/EmptyState'
@@ -24,13 +26,22 @@ export default function MonthViewPage() {
   const navigate = useNavigate()
   const deleteMeal = useDeleteMeal()
   const [month, setMonth] = useState(() => monthAnchorBrasilia())
+  const [filters, setFilters] = useState<MealFilterState>({ mealTypes: [], nutritionFlags: [], mealSource: null })
 
   const { startStr, endStr } = monthRangeYmdBrasilia(month)
   const { year, monthNum } = yearMonthBrasilia(month)
 
+  const filterParams = useMemo(() => {
+    const params: Record<string, string | boolean> = {}
+    if (filters.mealTypes.length > 0) params.meal_type = filters.mealTypes.join(',')
+    for (const flag of filters.nutritionFlags) params[flag] = true
+    if (filters.mealSource) params.meal_source = filters.mealSource
+    return params
+  }, [filters])
+
   const { data: meals = [] } = useQuery({
-    queryKey: ['meals', startStr, endStr],
-    queryFn: () => mealsApi.list({ start: startStr, end: endStr }),
+    queryKey: ['meals', startStr, endStr, filterParams],
+    queryFn: () => mealsApi.list({ start: startStr, end: endStr, ...filterParams }),
   })
 
   const groupedMeals = useMemo(() => {
@@ -46,6 +57,11 @@ export default function MonthViewPage() {
   const { data: stats } = useQuery({
     queryKey: ['stats', 'month', year, monthNum],
     queryFn: () => statsApi.month(year, monthNum),
+  })
+
+  const { data: mealCommentsMap = {} } = useQuery({
+    queryKey: ['meal-comments-batch', startStr, endStr],
+    queryFn: () => getBatchMealComments(startStr, endStr),
   })
 
   const label = formatInBrasilia(month, 'MMMM yyyy', { locale: ptBR })
@@ -70,6 +86,9 @@ export default function MonthViewPage() {
       </div>
 
       {stats && <StatsPanel stats={stats} />}
+
+      {/* Filters */}
+      <MealFilters filters={filters} onChange={setFilters} />
 
       <Card>
         <CardHeader>
@@ -104,6 +123,7 @@ export default function MonthViewPage() {
                           if (!window.confirm('Excluir esta refeição?')) return
                           deleteMeal.mutate(meal.id)
                         }}
+                        comments={mealCommentsMap[meal.id]}
                       />
                     </div>
                   ))}

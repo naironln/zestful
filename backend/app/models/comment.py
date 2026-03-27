@@ -19,3 +19,8 @@ class CommentOut(BaseModel):
     created_at: datetime
     nutritionist_name: str
     week_start: str | None = None
+
+
+class MealCommentsMap(BaseModel):
+    """Maps meal_id -> list of comments for batch fetching."""
+    comments_by_meal: dict[str, list[CommentOut]]

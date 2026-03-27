@@ -8,8 +8,13 @@ from app.db.queries.stats_queries import (
     get_top_dishes,
     get_top_ingredients,
     get_meals_per_day,
+    get_nutrition_flag_counts,
+    get_nutrition_flags_per_day,
 )
-from app.models.stats import PeriodStats, DateRange, MealTypeDistribution, DayCount, TopItem
+from app.models.stats import (
+    PeriodStats, DateRange, MealTypeDistribution, DayCount, TopItem,
+    NutritionFlags, DayNutritionFlags,
+)
 
 
 async def build_stats(session: AsyncSession, user_id: str, start: str, end: str, period: str) -> PeriodStats:
@@ -17,6 +22,8 @@ async def build_stats(session: AsyncSession, user_id: str, start: str, end: str,
     meals_per_day = await get_meals_per_day(session, user_id, start, end)
     top_dishes = await get_top_dishes(session, user_id, start, end)
     top_ingredients = await get_top_ingredients(session, user_id, start, end)
+    flag_counts = await get_nutrition_flag_counts(session, user_id, start, end)
+    flags_per_day_raw = await get_nutrition_flags_per_day(session, user_id, start, end)
 
     # Meal type distribution
     type_counts: Counter = Counter()
@@ -30,6 +37,33 @@ async def build_stats(session: AsyncSession, user_id: str, start: str, end: str,
         snack=type_counts.get("snack", 0),
     )
 
+    nutrition_flags = NutritionFlags(
+        meals_with_vegetables=flag_counts.get("meals_with_vegetables", 0) or 0,
+        fruit_count=flag_counts.get("fruit_count", 0) or 0,
+        dessert_count=flag_counts.get("dessert_count", 0) or 0,
+        ultra_processed_count=flag_counts.get("ultra_processed_count", 0) or 0,
+        meals_with_protein=flag_counts.get("meals_with_protein", 0) or 0,
+        homemade_count=flag_counts.get("homemade_count", 0) or 0,
+        restaurant_count=flag_counts.get("restaurant_count", 0) or 0,
+        delivery_count=flag_counts.get("delivery_count", 0) or 0,
+    )
+
+    flags_per_day = [
+        DayNutritionFlags(
+            date=d["date"],
+            total=d.get("total", 0) or 0,
+            vegetables=d.get("vegetables", 0) or 0,
+            fruits=d.get("fruits", 0) or 0,
+            desserts=d.get("desserts", 0) or 0,
+            ultra_processed=d.get("ultra_processed", 0) or 0,
+            protein=d.get("protein", 0) or 0,
+            homemade=d.get("homemade", 0) or 0,
+            restaurant=d.get("restaurant", 0) or 0,
+            delivery=d.get("delivery", 0) or 0,
+        )
+        for d in flags_per_day_raw
+    ]
+
     return PeriodStats(
         period=period,
         date_range=DateRange(start=start, end=end),
@@ -38,6 +72,8 @@ async def build_stats(session: AsyncSession, user_id: str, start: str, end: str,
         meals_per_day=[DayCount(date=d["date"], count=d["count"]) for d in meals_per_day],
         top_dishes=[TopItem(name=d["name"], count=d["count"]) for d in top_dishes if d["name"]],
         top_ingredients=[TopItem(name=i["name"], count=i["count"]) for i in top_ingredients if i["name"]],
+        nutrition_flags=nutrition_flags,
+        nutrition_flags_per_day=flags_per_day,
     )
 
 

@@ -22,7 +22,7 @@ from app.db.queries.meal_queries import (
 from app.db.queries.taco_queries import get_meal_nutrition
 from app.services.claude_service import analyze_meal_image, correct_meal_analysis, estimate_portions
 from app.services.nutrition_mapping_service import map_ingredient_to_food
-from app.models.meal import MealEntryOut, MealDetail, IngredientWithPortion
+from app.models.meal import MealEntryOut, MealDetail, MealNutritionFlags, IngredientWithPortion
 
 
 SUPPORTED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic"}
@@ -90,11 +90,23 @@ def _save_image(image_bytes: bytes, user_id: str, meal_id: str, suffix: str) -> 
     return f"meals/{user_id}/{filename}"
 
 
+def _build_nutrition_flags(meal: dict) -> MealNutritionFlags | None:
+    if meal.get("has_vegetables") is None and meal.get("meal_source") is None:
+        return None
+    return MealNutritionFlags(
+        has_vegetables=bool(meal.get("has_vegetables", False)),
+        is_fruit=bool(meal.get("is_fruit", False)),
+        is_dessert=bool(meal.get("is_dessert", False)),
+        is_ultra_processed=bool(meal.get("is_ultra_processed", False)),
+        has_protein=bool(meal.get("has_protein", False)),
+        meal_source=meal.get("meal_source"),
+    )
+
+
 def _meal_record_to_out(meal: dict, base_url: str = "") -> MealEntryOut:
     eaten_at = meal["eaten_at"]
     logged_at = meal["logged_at"]
 
-    # neo4j DateTime objects have .to_native() method
     if hasattr(eaten_at, "to_native"):
         eaten_at = eaten_at.to_native()
     if hasattr(logged_at, "to_native"):
@@ -113,6 +125,7 @@ def _meal_record_to_out(meal: dict, base_url: str = "") -> MealEntryOut:
         image_url=image_url,
         notes=meal.get("notes"),
         confidence=meal.get("confidence"),
+        nutrition_flags=_build_nutrition_flags(meal),
     )
 
 
@@ -168,6 +181,12 @@ async def upload_meal(
             "notes": notes or "",
             "confidence": analysis.confidence,
             "ingredients": analysis.ingredients,
+            "has_vegetables": analysis.has_vegetables,
+            "is_fruit": analysis.is_fruit,
+            "is_dessert": analysis.is_dessert,
+            "is_ultra_processed": analysis.is_ultra_processed,
+            "has_protein": analysis.has_protein,
+            "meal_source": analysis.meal_source,
         },
     )
     meal["ingredients"] = analysis.ingredients
@@ -183,8 +202,15 @@ async def upload_meal(
     return _meal_record_to_out(meal)
 
 
-async def list_meals(session, user_id: str, start: str, end: str, meal_type: str | None) -> list[MealEntryOut]:
-    meals = await get_meals_by_range(session, user_id, start, end, meal_type)
+async def list_meals(
+    session,
+    user_id: str,
+    start: str,
+    end: str,
+    meal_type: str | None,
+    nutrition_flags: dict[str, bool | str] | None = None,
+) -> list[MealEntryOut]:
+    meals = await get_meals_by_range(session, user_id, start, end, meal_type, nutrition_flags)
     return [_meal_record_to_out(m) for m in meals]
 
 
@@ -232,6 +258,7 @@ def _meal_record_to_detail(meal: dict, nutrients: list | None = None, base_url: 
         confidence=meal.get("confidence"),
         plate_composition=plate_composition,
         nutrients=nutrients,
+        nutrition_flags=_build_nutrition_flags(meal),
     )
 
 
@@ -350,7 +377,13 @@ async def correct_meal(
     dish_name = updated.get("dish_name", current.get("dish_name", ""))
     ingredients = updated.get("ingredients", current.get("ingredients", []))
 
-    meal = await apply_meal_correction(session, meal_id, user_id, dish_name, ingredients)
+    nutrition_flags = {
+        k: updated.get(k)
+        for k in ("has_vegetables", "is_fruit", "is_dessert", "is_ultra_processed", "has_protein", "meal_source")
+        if updated.get(k) is not None
+    }
+
+    meal = await apply_meal_correction(session, meal_id, user_id, dish_name, ingredients, nutrition_flags)
     if not meal:
         return None
 

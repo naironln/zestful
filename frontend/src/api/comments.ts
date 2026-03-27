@@ -1,5 +1,5 @@
 import { apiClient } from './client'
-import type { Comment } from '@/types/comment'
+import type { Comment, MealCommentsMap } from '@/types/comment'
 import type { MealDetail } from '@/types/meal'
 
 /** Patient: read comments on their own meal */
@@ -12,7 +12,20 @@ export const getWeekComments = (weekStart: string) =>
     .get<Comment[]>('/meals/comments/week', { params: { week_start: weekStart } })
     .then((r) => r.data)
 
+/** Patient: batch-fetch all meal comments for a date range */
+export const getBatchMealComments = (start: string, end: string) =>
+  apiClient
+    .get<MealCommentsMap>('/meals/comments/meals', { params: { start, end } })
+    .then((r) => r.data.comments_by_meal)
+
 export const nutritionistCommentsApi = {
+  getBatchMealComments: (patientId: string, start: string, end: string) =>
+    apiClient
+      .get<MealCommentsMap>(`/nutritionist/patients/${patientId}/comments/meals`, {
+        params: { start, end },
+      })
+      .then((r) => r.data.comments_by_meal),
+
   getMealComments: (patientId: string, mealId: string) =>
     apiClient
       .get<Comment[]>(`/nutritionist/patients/${patientId}/meals/${mealId}/comments`)

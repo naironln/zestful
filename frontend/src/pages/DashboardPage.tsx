@@ -7,9 +7,10 @@ import {
 import { useQuery } from '@tanstack/react-query'
 import { useDeleteMeal } from '@/hooks/useDeleteMeal'
 import { Link, useNavigate } from 'react-router-dom'
-import { Plus, Coffee, Sun, Moon, Cookie, UtensilsCrossed } from 'lucide-react'
+import { Plus, Coffee, Sun, Moon, UtensilsCrossed, Salad, Apple, Cake, Factory, Drumstick, Home } from 'lucide-react'
 import { mealsApi } from '@/api/meals'
 import { statsApi } from '@/api/stats'
+import { getBatchMealComments } from '@/api/comments'
 import { useAuthStore } from '@/store/authStore'
 import MealCard from '@/components/meals/MealCard'
 import { Button } from '@/components/ui/button'
@@ -65,6 +66,11 @@ export default function DashboardPage() {
   const { data: stats } = useQuery({
     queryKey: ['stats', 'day', today],
     queryFn: () => statsApi.day(today),
+  })
+
+  const { data: mealCommentsMap = {} } = useQuery({
+    queryKey: ['meal-comments-batch', today],
+    queryFn: () => getBatchMealComments(today, today),
   })
 
   const greeting = () => {
@@ -135,6 +141,33 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Daily nutrition flags */}
+      {stats && stats.total_meals > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {[
+            { icon: Salad, label: 'Verduras', value: stats.nutrition_flags.meals_with_vegetables, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/30' },
+            { icon: Apple, label: 'Frutas', value: stats.nutrition_flags.fruit_count, color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-950/30' },
+            { icon: Drumstick, label: 'Proteína', value: stats.nutrition_flags.meals_with_protein, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-950/30' },
+            { icon: Home, label: 'Caseiro', value: stats.nutrition_flags.homemade_count, color: 'text-sky-600 dark:text-sky-400', bg: 'bg-sky-50 dark:bg-sky-950/30' },
+            { icon: Cake, label: 'Doces', value: stats.nutrition_flags.dessert_count, color: 'text-pink-600 dark:text-pink-400', bg: 'bg-pink-50 dark:bg-pink-950/30' },
+            { icon: Factory, label: 'Ultra.', value: stats.nutrition_flags.ultra_processed_count, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/30' },
+          ].map((item) => {
+            const Icon = item.icon
+            return (
+              <div
+                key={item.label}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 ${item.bg}`}
+              >
+                <Icon className={`h-3.5 w-3.5 ${item.color}`} />
+                <span className="text-xs font-medium text-warm-gray-700 dark:text-warm-gray-300">
+                  {item.value} {item.label}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       {/* Meals list */}
       <Card>
         <CardHeader>
@@ -166,6 +199,7 @@ export default function DashboardPage() {
                   if (!window.confirm('Excluir esta refeição?')) return
                   deleteMeal.mutate(meal.id)
                 }}
+                comments={mealCommentsMap[meal.id]}
               />
             </div>
           ))}

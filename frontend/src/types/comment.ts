@@ -6,3 +6,7 @@ export interface Comment {
   nutritionist_name: string
   week_start?: string | null
 }
+
+export interface MealCommentsMap {
+  comments_by_meal: Record<string, Comment[]>
+}

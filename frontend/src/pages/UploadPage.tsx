@@ -7,7 +7,8 @@ import { mealsApi } from '@/api/meals'
 import { BASE_URL } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import MealTypeTag from '@/components/meals/MealTypeTag'
-import type { MealEntry, MealType } from '@/types/meal'
+import NutritionFlagsBadges from '@/components/meals/NutritionFlagsBadges'
+import type { MealEntry, MealType, MealNutritionFlags } from '@/types/meal'
 
 const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack']
 const MEAL_LABELS: Record<MealType, string> = {
@@ -89,6 +90,13 @@ export default function UploadPage() {
       setResult(data)
       setCorrection('')
       queryClient.invalidateQueries({ queryKey: ['meals'] })
+    },
+  })
+
+  const flagsMutation = useMutation({
+    mutationFn: (flags: Partial<MealNutritionFlags>) => mealsApi.patch(result!.id, flags),
+    onSuccess: (data) => {
+      setResult(data)
     },
   })
 
@@ -250,6 +258,19 @@ export default function UploadPage() {
             <p className="text-xs text-warm-gray-400 dark:text-warm-gray-500">
               Confiança da IA: {Math.round((result.confidence ?? 0) * 100)}%
             </p>
+          )}
+
+          {result.nutrition_flags && (
+            <div>
+              <p className="mb-2 text-sm font-medium text-warm-gray-600 dark:text-warm-gray-400">
+                Classificação identificada:
+              </p>
+              <NutritionFlagsBadges
+                flags={result.nutrition_flags}
+                editable
+                onFlagsChange={(flags) => flagsMutation.mutate(flags)}
+              />
+            </div>
           )}
 
           <div className="space-y-2 border-t border-warm-gray-200 pt-4 dark:border-warm-gray-700">

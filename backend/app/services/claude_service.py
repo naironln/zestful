@@ -19,7 +19,13 @@ USER_PROMPT = """Analise esta foto de refeição e retorne um objeto JSON com ex
   "dish_name": "nome do prato em português (máx 60 caracteres)",
   "cuisine_origin": "brasileira" | "italiana" | "japonesa" | "árabe" | "americana" | "mexicana" | "chinesa" | "francesa" | "portuguesa" | "outra",
   "ingredients": ["ingrediente1", "ingrediente2", ...],
-  "confidence": 0.0-1.0
+  "confidence": 0.0-1.0,
+  "has_vegetables": true | false,
+  "is_fruit": true | false,
+  "is_dessert": true | false,
+  "is_ultra_processed": true | false,
+  "has_protein": true | false,
+  "meal_source": "homemade" | "restaurant" | "delivery" | null
 }
 
 meal_type (mantenha os valores em inglês):
@@ -41,6 +47,23 @@ ingredients — REGRA PRINCIPAL: liste SOMENTE o que você consegue ver ou ident
 - NÃO inclua sal, pimenta preta, água, óleo ou qualquer tempero invisível
 - Máximo 10 ingredientes; prefira menos com certeza a mais com dúvida
 
+has_vegetables: true se houver verduras, legumes ou salada visíveis (folhas, tomate, cenoura, brócolis, etc.)
+
+is_fruit: true se a refeição for composta principalmente por fruta(s) — fruta isolada ou salada de frutas
+
+is_dessert: true APENAS para doces e sobremesas propriamente ditos — chocolate, bolo, torta, sorvete, pudim, mousse, brigadeiro, bolacha/biscoito doce, brownie, açaí com cobertura doce. NÃO considere como doce: barra de proteína, iogurte natural, granola, barra de cereal, frutas in natura
+
+is_ultra_processed: true APENAS para ultraprocessados (classificação NOVA grupo 4) — refrigerante, salgadinho de pacote, nuggets, biscoito recheado, embutidos (salsicha, presunto), macarrão instantâneo, sorvete industrializado, fast-food industrializado. NÃO considere ultraprocessado: alimentos apenas processados como queijo, pão artesanal, conservas simples, manteiga
+
+has_protein: true se houver fonte proteica visível — carne vermelha, frango, peixe, ovos, leguminosas (feijão, lentilha, grão-de-bico), tofu
+
+meal_source: identifique a origem da refeição — um dos três valores ou null:
+- "homemade": refeição aparenta ser caseira/feita em casa — prato comum, panela, travessa, cozinha doméstica visível
+- "restaurant": refeição aparenta ser de restaurante — prato decorado, apresentação profissional, ambiente de restaurante visível, buffet/self-service
+- "delivery": refeição aparenta ser de delivery — embalagem descartável, marmita, caixa de papelão, sacola, embalagem de isopor/plástico
+- null: quando a origem não se aplica ou não é identificável — fruta isolada, alimento avulso sem contexto de preparo, bebida simples
+Na dúvida entre restaurante e delivery, observe a embalagem
+
 Retorne APENAS o objeto JSON."""
 
 
@@ -49,6 +72,18 @@ CORRECTION_SYSTEM_PROMPT = (
     "quer corrigir a identificação em linguagem natural. Aplique apenas as correções mencionadas, "
     "mantendo o restante da análise original. "
     "Responda SEMPRE com JSON válido apenas, sem markdown, sem explicações."
+)
+
+
+NUTRITION_FLAGS_RULES = (
+    "has_vegetables: true se houver verduras, legumes ou salada (folhas, tomate, cenoura, brócolis, etc.)\n"
+    "is_fruit: true se a refeição for composta principalmente por fruta(s)\n"
+    "is_dessert: true APENAS para doces/sobremesas (chocolate, bolo, sorvete, pudim, biscoito doce). "
+    "NÃO é doce: barra de proteína, iogurte natural, granola, frutas in natura\n"
+    "is_ultra_processed: true APENAS para ultraprocessados NOVA grupo 4 (refrigerante, salgadinho, nuggets, "
+    "biscoito recheado, embutidos, macarrão instantâneo). NÃO é ultraprocessado: queijo, pão artesanal, conservas\n"
+    "has_protein: true se houver fonte proteica (carne, frango, peixe, ovos, feijão, lentilha, tofu)\n"
+    'meal_source: "homemade" se caseiro, "restaurant" se restaurante, "delivery" se delivery/marmita, null se não se aplica (fruta avulsa, alimento sem contexto de preparo)'
 )
 
 
@@ -67,7 +102,13 @@ async def correct_meal_analysis(
         "Aplique a correção e retorne o JSON atualizado:\n"
         "{\n"
         "  \"dish_name\": \"nome corrigido\",\n"
-        "  \"ingredients\": [\"ingrediente1\", \"ingrediente2\", ...]\n"
+        "  \"ingredients\": [\"ingrediente1\", \"ingrediente2\", ...],\n"
+        "  \"has_vegetables\": true | false,\n"
+        "  \"is_fruit\": true | false,\n"
+        "  \"is_dessert\": true | false,\n"
+        "  \"is_ultra_processed\": true | false,\n"
+        "  \"has_protein\": true | false,\n"
+        "  \"meal_source\": \"homemade\" | \"restaurant\" | \"delivery\" | null\n"
         "}\n\n"
         "Regras:\n"
         "- Mantenha ingredientes não mencionados na correção\n"
@@ -75,6 +116,8 @@ async def correct_meal_analysis(
         "- Adicione ingredientes que o usuário mencionou\n"
         "- Use nomes específicos em português (ex: \"feijão carioca\", \"frango peito\")\n"
         "- Para ingredientes internacionais sem tradução no Brasil, mantenha em inglês\n"
+        "- Reavalie os flags com base nos ingredientes/prato APÓS a correção:\n"
+        f"{NUTRITION_FLAGS_RULES}\n"
         "- Retorne APENAS o JSON"
     )
     try:

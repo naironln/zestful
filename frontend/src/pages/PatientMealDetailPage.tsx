@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ptBR } from 'date-fns/locale'
 import { formatInBrasilia } from '@/lib/brasilTimezone'
 import { ArrowLeft, Utensils, Scale } from 'lucide-react'
+import NutritionFlagsBadges from '@/components/meals/NutritionFlagsBadges'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { nutritionistCommentsApi } from '@/api/comments'
 import { BASE_URL } from '@/api/client'
@@ -163,6 +164,11 @@ export default function PatientMealDetailPage() {
         <p className="mt-1 text-base capitalize text-warm-gray-500 dark:text-warm-gray-400">
           {dateLabel}
         </p>
+        {meal.nutrition_flags && (
+          <div className="mt-3">
+            <NutritionFlagsBadges flags={meal.nutrition_flags} />
+          </div>
+        )}
       </div>
 
       {/* Key nutrients */}

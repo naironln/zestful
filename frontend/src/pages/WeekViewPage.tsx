@@ -8,9 +8,10 @@ import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
 import { mealsApi } from '@/api/meals'
 import { statsApi } from '@/api/stats'
-import { getWeekComments } from '@/api/comments'
+import { getWeekComments, getBatchMealComments } from '@/api/comments'
 import { Button } from '@/components/ui/button'
 import MealCard from '@/components/meals/MealCard'
+import MealFilters, { type MealFilterState } from '@/components/meals/MealFilters'
 import StatsPanel from '@/components/stats/StatsPanel'
 import CommentSection from '@/components/comments/CommentSection'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -21,14 +22,23 @@ export default function WeekViewPage() {
   const navigate = useNavigate()
   const deleteMeal = useDeleteMeal()
   const [weekStart, setWeekStart] = useState(() => weekStartMondayBrasilia())
+  const [filters, setFilters] = useState<MealFilterState>({ mealTypes: [], nutritionFlags: [], mealSource: null })
   const weekEnd = addDays(weekStart, 6)
 
   const startStr = ymdInBrasilia(weekStart)
   const endStr = ymdInBrasilia(weekEnd)
 
+  const filterParams = useMemo(() => {
+    const params: Record<string, string | boolean> = {}
+    if (filters.mealTypes.length > 0) params.meal_type = filters.mealTypes.join(',')
+    for (const flag of filters.nutritionFlags) params[flag] = true
+    if (filters.mealSource) params.meal_source = filters.mealSource
+    return params
+  }, [filters])
+
   const { data: meals = [] } = useQuery({
-    queryKey: ['meals', startStr, endStr],
-    queryFn: () => mealsApi.list({ start: startStr, end: endStr }),
+    queryKey: ['meals', startStr, endStr, filterParams],
+    queryFn: () => mealsApi.list({ start: startStr, end: endStr, ...filterParams }),
   })
 
   const groupedMeals = useMemo(() => {
@@ -49,6 +59,11 @@ export default function WeekViewPage() {
   const { data: weekComments = [] } = useQuery({
     queryKey: ['week-comments', startStr],
     queryFn: () => getWeekComments(startStr),
+  })
+
+  const { data: mealCommentsMap = {} } = useQuery({
+    queryKey: ['meal-comments-batch', startStr, endStr],
+    queryFn: () => getBatchMealComments(startStr, endStr),
   })
 
   const label = `${formatInBrasilia(weekStart, "d 'de' MMM", { locale: ptBR })} – ${formatInBrasilia(weekEnd, "d 'de' MMM", { locale: ptBR })}`
@@ -88,6 +103,9 @@ export default function WeekViewPage() {
         </Card>
       )}
 
+      {/* Filters */}
+      <MealFilters filters={filters} onChange={setFilters} />
+
       {/* Meals */}
       <Card>
         <CardHeader>
@@ -109,22 +127,23 @@ export default function WeekViewPage() {
                   <h3 className="border-t border-warm-gray-200 pt-2 text-sm font-semibold text-warm-gray-500 first:border-t-0 first:pt-0 dark:border-warm-gray-700 dark:text-warm-gray-400">
                     {dayLabelCap}
                   </h3>
-                  {dayMeals.map((meal, i) => (
-                    <div
-                      key={meal.id}
-                      className="animate-fade-in-up"
-                      style={{ animationDelay: `${i * 50}ms`, animationFillMode: 'both' }}
-                    >
-                      <MealCard
-                        meal={meal}
-                        onClick={() => navigate(`/meals/${meal.id}`)}
-                        onDelete={() => {
-                          if (!window.confirm('Excluir esta refeição?')) return
-                          deleteMeal.mutate(meal.id)
-                        }}
-                      />
-                    </div>
-                  ))}
+                    {dayMeals.map((meal, i) => (
+                      <div
+                        key={meal.id}
+                        className="animate-fade-in-up"
+                        style={{ animationDelay: `${i * 50}ms`, animationFillMode: 'both' }}
+                      >
+                        <MealCard
+                          meal={meal}
+                          onClick={() => navigate(`/meals/${meal.id}`)}
+                          onDelete={() => {
+                            if (!window.confirm('Excluir esta refeição?')) return
+                            deleteMeal.mutate(meal.id)
+                          }}
+                          comments={mealCommentsMap[meal.id]}
+                        />
+                      </div>
+                    ))}
                 </div>
               )
             })
