@@ -270,7 +270,7 @@ async def analyze_meal_nutrition(session, user_id: str, meal_id: str) -> MealDet
 
     ingredients = meal.get("ingredients", [])
     image_path = meal.get("image_path")
-    if not image_path or not ingredients:
+    if not image_path:
         return None
 
     full_path = Path(settings.media_dir) / image_path
@@ -281,6 +281,21 @@ async def analyze_meal_nutrition(session, user_id: str, meal_id: str) -> MealDet
     suffix = full_path.suffix.lower()
     media_type_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
     media_type = media_type_map.get(suffix, "image/jpeg")
+
+    # If ingredients are missing (e.g. initial analysis failed), re-run vision analysis
+    if not ingredients:
+        reanalysis = await analyze_meal_image(image_bytes, media_type)
+        ingredients = reanalysis.ingredients
+        if ingredients:
+            await apply_meal_correction(
+                session, meal_id, user_id,
+                reanalysis.dish_name or meal.get("dish_name", ""),
+                ingredients,
+                {},
+            )
+
+    if not ingredients:
+        return None
 
     estimation = await estimate_portions(image_bytes, media_type, ingredients)
     portions = estimation.get("portions", [])
