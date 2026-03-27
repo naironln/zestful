@@ -18,7 +18,16 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            set -e
+            echo "=== whoami ==="
+            whoami
+            echo "=== docker version ==="
+            docker --version
+            echo "=== cd ==="
             cd /opt/zestful
+            echo "=== git pull ==="
             git pull
+            echo "=== docker compose up ==="
             docker compose -f docker-compose.prod.yml up -d --build --force-recreate
+            echo "=== ps ==="
             docker compose -f docker-compose.prod.yml ps
