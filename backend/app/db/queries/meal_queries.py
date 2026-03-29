@@ -167,21 +167,26 @@ async def apply_meal_correction(
 async def save_portion_estimates(
     session: AsyncSession, meal_id: str, user_id: str,
     portions: list[dict], plate_composition: list[dict],
+    nutrition_trace: str | None = None,
+    image_detail_description: str | None = None,
 ) -> bool:
-    """Save grams on HAS_INGREDIENT relationships and plate_composition on MealEntry."""
+    """Save grams on HAS_INGREDIENT relationships, plate_composition,
+    nutrition_trace and image_detail_description on MealEntry."""
     import json
-    # Save plate_composition as JSON string on MealEntry
     await session.run(
         """
         MATCH (u:User {id: $user_id})-[:LOGGED]->(m:MealEntry {id: $meal_id})
         SET m.plate_composition = $plate_composition,
-            m.nutrition_analyzed = true
+            m.nutrition_analyzed = true,
+            m.nutrition_trace = $nutrition_trace,
+            m.image_detail_description = $image_detail_description
         """,
         meal_id=meal_id,
         user_id=user_id,
         plate_composition=json.dumps(plate_composition, ensure_ascii=False),
+        nutrition_trace=nutrition_trace,
+        image_detail_description=image_detail_description,
     )
-    # Update grams on each HAS_INGREDIENT relationship
     for p in portions:
         await session.run(
             """

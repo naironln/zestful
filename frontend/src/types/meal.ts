@@ -41,6 +41,36 @@ export interface NutrientValue {
   per_100g: number
 }
 
+export type NutritionSource = 'taco' | 'taco_decomposition' | 'label' | 'web_search' | 'llm_estimate'
+
+export interface NutrientAdjustment {
+  field: string
+  original_value: number
+  adjusted_value: number
+  reason: string
+  source: string
+}
+
+export interface IngredientTrace {
+  ingredient: string
+  estimated_grams: number | null
+  source: NutritionSource
+  taco_food_name: string | null
+  taco_id: number | null
+  taco_confidence: number | null
+  nutrients_from_source: NutrientValue[]
+  adjustments: NutrientAdjustment[]
+  reasoning: string
+}
+
+export interface NutritionCalculationTrace {
+  ingredient_traces: IngredientTrace[]
+  reconciliation_notes: string[]
+  sources_used: string[]
+  overall_confidence: number
+  analyzed_at: string
+}
+
 export interface MealDetail {
   id: string
   meal_type: MealType
@@ -54,4 +84,5 @@ export interface MealDetail {
   plate_composition: PlateComposition[] | null
   nutrients: NutrientValue[] | null
   nutrition_flags: MealNutritionFlags | null
+  nutrition_trace: NutritionCalculationTrace | null
 }

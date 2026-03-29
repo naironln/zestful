@@ -19,10 +19,19 @@ from app.db.queries.meal_queries import (
     apply_meal_correction, save_portion_estimates, get_meal_full_detail,
     get_meal_full_detail_nutritionist, delete_meal,
 )
+import logging
+
 from app.db.queries.taco_queries import get_meal_nutrition
-from app.services.claude_service import analyze_meal_image, correct_meal_analysis, estimate_portions
+from app.services.claude_service import (
+    analyze_meal_image, correct_meal_analysis, estimate_portions,
+    extract_image_detail, reconcile_nutrition,
+)
 from app.services.nutrition_mapping_service import map_ingredient_to_food
+from app.services.nutrition_source_service import build_nutrition_trace
 from app.models.meal import MealEntryOut, MealDetail, MealNutritionFlags, IngredientWithPortion
+from app.models.nutrition import NutritionCalculationTrace, NutrientAdjustment
+
+logger = logging.getLogger(__name__)
 
 
 SUPPORTED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic"}
@@ -219,7 +228,12 @@ async def get_meal(session, user_id: str, meal_id: str) -> MealEntryOut | None:
     return _meal_record_to_out(meal) if meal else None
 
 
-def _meal_record_to_detail(meal: dict, nutrients: list | None = None, base_url: str = "") -> MealDetail:
+def _meal_record_to_detail(
+    meal: dict,
+    nutrients: list | None = None,
+    base_url: str = "",
+    nutrition_trace: NutritionCalculationTrace | None = None,
+) -> MealDetail:
     """Convert a Neo4j meal record (with ingredients_detail) to MealDetail."""
     eaten_at = meal["eaten_at"]
     logged_at = meal["logged_at"]
@@ -238,6 +252,16 @@ def _meal_record_to_detail(meal: dict, nutrients: list | None = None, base_url: 
             plate_composition = json.loads(raw_comp) if isinstance(raw_comp, str) else raw_comp
         except Exception:
             plate_composition = None
+
+    # Parse stored trace if not provided directly
+    if nutrition_trace is None:
+        raw_trace = meal.get("nutrition_trace")
+        if raw_trace:
+            try:
+                trace_data = json.loads(raw_trace) if isinstance(raw_trace, str) else raw_trace
+                nutrition_trace = NutritionCalculationTrace(**trace_data)
+            except Exception:
+                nutrition_trace = None
 
     ingredients_detail = meal.get("ingredients_detail", [])
     ingredients = [
@@ -259,11 +283,18 @@ def _meal_record_to_detail(meal: dict, nutrients: list | None = None, base_url: 
         plate_composition=plate_composition,
         nutrients=nutrients,
         nutrition_flags=_build_nutrition_flags(meal),
+        nutrition_trace=nutrition_trace,
     )
 
 
 async def analyze_meal_nutrition(session, user_id: str, meal_id: str) -> MealDetail | None:
-    """Estimate portions from photo, save them, compute nutrients, return full detail."""
+    """4-phase nutrition analysis pipeline with full calculation traceability.
+
+    Phase 1: Extract detailed image description (labels, brands, portion cues)
+    Phase 2: Estimate portions (grams) using image + context from Phase 1
+    Phase 3: Build nutrition trace with hierarchical source selection per ingredient
+    Phase 4: Reconcile computed values against image evidence
+    """
     meal = await get_meal_with_details(session, meal_id, user_id)
     if not meal:
         return None
@@ -297,27 +328,44 @@ async def analyze_meal_nutrition(session, user_id: str, meal_id: str) -> MealDet
     if not ingredients:
         return None
 
-    estimation = await estimate_portions(image_bytes, media_type, ingredients)
+    # ── Phase 1: Detailed image description ───────────────────────
+    image_detail = await extract_image_detail(image_bytes, media_type, ingredients)
+
+    # ── Phase 2: Portion estimation (enhanced with image context) ─
+    estimation = await estimate_portions(image_bytes, media_type, ingredients, image_detail)
     portions = estimation.get("portions", [])
     plate_composition = estimation.get("plate_composition", [])
 
+    # Save portions first so TACO queries can use grams
     await save_portion_estimates(session, meal_id, user_id, portions, plate_composition)
 
-    return await get_meal_detail_full(session, user_id, meal_id)
-
-
-async def get_meal_detail_full(session, user_id: str, meal_id: str) -> MealDetail | None:
-    """Get complete meal detail with portions, plate composition, and computed nutrients."""
-    meal = await get_meal_full_detail(session, meal_id, user_id)
-    if not meal:
-        return None
-
+    # ── Phase 3: Source selection & trace building ─────────────────
     nutrition_data = await get_meal_nutrition(session, meal_id, user_id)
 
+    ingredients_with_grams = [
+        {"name": p["ingredient"], "grams": p.get("grams")}
+        for p in portions
+    ]
+
+    trace = await build_nutrition_trace(
+        session, ingredients_with_grams, nutrition_data, image_detail
+    )
+
+    # Identify ingredients whose source is NOT TACO (to avoid double-counting)
+    non_taco_ingredients = {
+        t.ingredient.lower()
+        for t in trace.ingredient_traces
+        if t.source in ("label", "web_search", "llm_estimate")
+    }
+
+    # Compute nutrient totals from TACO, skipping ingredients sourced elsewhere
     nutrients = None
+    totals: dict[str, dict] = {}
     if nutrition_data and nutrition_data.get("ingredients"):
-        totals: dict[str, dict] = {}
         for ing in nutrition_data["ingredients"]:
+            ing_name = (ing.get("ingredient") or "").lower()
+            if ing_name in non_taco_ingredients:
+                continue
             for n in (ing.get("nutrients") or []):
                 key = n["key"]
                 if key in totals:
@@ -329,10 +377,181 @@ async def get_meal_detail_full(session, user_id: str, meal_id: str) -> MealDetai
                         "unit": n["unit"],
                         "per_100g": n["per_100g"],
                     }
-        if totals:
-            nutrients = list(totals.values())
 
-    return _meal_record_to_detail(meal, nutrients)
+    # Add nutrients from non-TACO sources (label, web_search, llm_estimate)
+    for ing_trace in trace.ingredient_traces:
+        if ing_trace.source in ("label", "web_search", "llm_estimate") and ing_trace.nutrients_from_source:
+            grams = ing_trace.estimated_grams or 100
+            for nv in ing_trace.nutrients_from_source:
+                scaled = nv.per_100g * grams / 100.0
+                if nv.key in totals:
+                    totals[nv.key]["per_100g"] += scaled
+                else:
+                    totals[nv.key] = {
+                        "key": nv.key,
+                        "name": nv.name,
+                        "unit": nv.unit,
+                        "per_100g": scaled,
+                    }
+
+    if totals:
+        nutrients = list(totals.values())
+
+    # ── Phase 4: Reconciliation ───────────────────────────────────
+    macro_totals = {
+        k: round(v["per_100g"], 1)
+        for k, v in totals.items()
+        if k in ("energy_kcal", "protein_g", "carbohydrate_g", "lipid_g", "fiber_g")
+    }
+
+    ingredient_calcs = [
+        {
+            "ingredient": t.ingredient,
+            "grams": t.estimated_grams,
+            "source": t.source,
+            "taco_food": t.taco_food_name,
+            "nutrients_per_100g": {nv.key: nv.per_100g for nv in t.nutrients_from_source[:5]},
+            "calculated_total": {
+                nv.key: round(nv.per_100g * (t.estimated_grams or 100) / 100, 1)
+                for nv in t.nutrients_from_source[:5]
+            },
+        }
+        for t in trace.ingredient_traces
+    ]
+
+    reconciliation = await reconcile_nutrition(
+        detailed_description=image_detail.detailed_description,
+        visible_nutrition_info=image_detail.visible_nutrition_info,
+        product_identifiers=image_detail.product_identifiers,
+        ingredient_calculations=ingredient_calcs,
+        macro_totals=macro_totals,
+    )
+
+    # Apply reconciliation adjustments to totals
+    for adj in reconciliation.get("adjustments", []):
+        field = adj.get("field", "")
+        try:
+            adjusted = float(adj.get("adjusted_value", 0))
+            original = float(adj.get("original_value", 0))
+        except (TypeError, ValueError):
+            logger.warning("Skipping malformed reconciliation adjustment: %s", adj)
+            continue
+        if not field:
+            continue
+        if field in totals:
+            totals[field]["per_100g"] += (adjusted - original)
+        ing_name = adj.get("ingredient", "").lower()
+        for t in trace.ingredient_traces:
+            if t.ingredient.lower() == ing_name:
+                t.adjustments.append(NutrientAdjustment(
+                    field=field,
+                    original_value=original,
+                    adjusted_value=adjusted,
+                    reason=str(adj.get("reason", "")),
+                    source=str(adj.get("source", "reconciliation")),
+                ))
+                break
+
+    trace.reconciliation_notes = reconciliation.get("validation_notes", [])
+    try:
+        rec_confidence = float(reconciliation.get("overall_confidence", 0))
+        trace.overall_confidence = round(
+            (trace.overall_confidence + rec_confidence) / 2, 2
+        )
+    except (TypeError, ValueError):
+        pass
+
+    if totals:
+        nutrients = list(totals.values())
+
+    # ── Persist trace ─────────────────────────────────────────────
+    trace_json = trace.model_dump_json()
+    detail_desc = image_detail.detailed_description if image_detail else None
+
+    await save_portion_estimates(
+        session, meal_id, user_id, portions, plate_composition,
+        nutrition_trace=trace_json,
+        image_detail_description=detail_desc,
+    )
+
+    return await get_meal_detail_full(session, user_id, meal_id)
+
+
+def _aggregate_nutrients_with_trace(
+    nutrition_data: dict | None, stored_trace: NutritionCalculationTrace | None
+) -> list[dict] | None:
+    """Aggregate TACO nutrients and merge non-TACO sources from stored trace."""
+    totals: dict[str, dict] = {}
+
+    non_taco_ingredients: set[str] = set()
+    if stored_trace:
+        non_taco_ingredients = {
+            t.ingredient.lower()
+            for t in stored_trace.ingredient_traces
+            if t.source in ("label", "web_search", "llm_estimate")
+        }
+
+    if nutrition_data and nutrition_data.get("ingredients"):
+        for ing in nutrition_data["ingredients"]:
+            ing_name = (ing.get("ingredient") or "").lower()
+            if ing_name in non_taco_ingredients:
+                continue
+            for n in (ing.get("nutrients") or []):
+                key = n["key"]
+                if key in totals:
+                    totals[key]["per_100g"] += n["per_100g"]
+                else:
+                    totals[key] = {
+                        "key": key,
+                        "name": n["name"],
+                        "unit": n["unit"],
+                        "per_100g": n["per_100g"],
+                    }
+
+    if stored_trace:
+        for ing_trace in stored_trace.ingredient_traces:
+            if ing_trace.source in ("label", "web_search", "llm_estimate") and ing_trace.nutrients_from_source:
+                grams = ing_trace.estimated_grams or 100
+                for nv in ing_trace.nutrients_from_source:
+                    scaled = nv.per_100g * grams / 100.0
+                    if nv.key in totals:
+                        totals[nv.key]["per_100g"] += scaled
+                    else:
+                        totals[nv.key] = {
+                            "key": nv.key,
+                            "name": nv.name,
+                            "unit": nv.unit,
+                            "per_100g": scaled,
+                        }
+
+        for adj in (a for t in stored_trace.ingredient_traces for a in t.adjustments):
+            field = adj.field
+            if field in totals:
+                totals[field]["per_100g"] += (adj.adjusted_value - adj.original_value)
+
+    return list(totals.values()) if totals else None
+
+
+async def get_meal_detail_full(session, user_id: str, meal_id: str) -> MealDetail | None:
+    """Get complete meal detail with portions, plate composition, computed nutrients, and trace."""
+    meal = await get_meal_full_detail(session, meal_id, user_id)
+    if not meal:
+        return None
+
+    # Parse stored trace
+    stored_trace = None
+    raw_trace = meal.get("nutrition_trace")
+    if raw_trace:
+        try:
+            trace_data = json.loads(raw_trace) if isinstance(raw_trace, str) else raw_trace
+            stored_trace = NutritionCalculationTrace(**trace_data)
+        except Exception:
+            pass
+
+    nutrition_data = await get_meal_nutrition(session, meal_id, user_id)
+    nutrients = _aggregate_nutrients_with_trace(nutrition_data, stored_trace)
+
+    return _meal_record_to_detail(meal, nutrients, nutrition_trace=stored_trace)
 
 
 async def get_meal_detail_full_for_nutritionist(
@@ -343,28 +562,19 @@ async def get_meal_detail_full_for_nutritionist(
     if not meal:
         return None
 
-    # Reuse patient-id ownership for nutrition query (ownership already validated above)
+    stored_trace = None
+    raw_trace = meal.get("nutrition_trace")
+    if raw_trace:
+        try:
+            trace_data = json.loads(raw_trace) if isinstance(raw_trace, str) else raw_trace
+            stored_trace = NutritionCalculationTrace(**trace_data)
+        except Exception:
+            pass
+
     nutrition_data = await get_meal_nutrition(session, meal_id, patient_id)
+    nutrients = _aggregate_nutrients_with_trace(nutrition_data, stored_trace)
 
-    nutrients = None
-    if nutrition_data and nutrition_data.get("ingredients"):
-        totals: dict[str, dict] = {}
-        for ing in nutrition_data["ingredients"]:
-            for n in (ing.get("nutrients") or []):
-                key = n["key"]
-                if key in totals:
-                    totals[key]["per_100g"] += n["per_100g"]
-                else:
-                    totals[key] = {
-                        "key": key,
-                        "name": n["name"],
-                        "unit": n["unit"],
-                        "per_100g": n["per_100g"],
-                    }
-        if totals:
-            nutrients = list(totals.values())
-
-    return _meal_record_to_detail(meal, nutrients)
+    return _meal_record_to_detail(meal, nutrients, nutrition_trace=stored_trace)
 
 
 async def correct_meal(

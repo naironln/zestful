@@ -19,7 +19,8 @@ async def get_meal_nutrition(session: AsyncSession, meal_id: str, user_id: str) 
                  per_100g: CASE WHEN hi.grams IS NOT NULL
                      THEN r.per_100g * coalesce(mt.fraction, 1.0) * hi.grams / 100.0
                      ELSE r.per_100g * coalesce(mt.fraction, 1.0)
-                 END
+                 END,
+                 raw_per_100g: r.per_100g * coalesce(mt.fraction, 1.0)
              }) AS nutrients
         RETURN
             m.id AS meal_id,
