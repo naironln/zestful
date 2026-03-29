@@ -126,10 +126,10 @@ async def apply_meal_correction(
         MATCH (u:User {id: $user_id})-[:LOGGED]->(m:MealEntry {id: $meal_id})
         OPTIONAL MATCH (m)-[ri:HAS_INGREDIENT]->()
         DELETE ri
-        WITH m
+        WITH DISTINCT m
         OPTIONAL MATCH (m)-[rd:CONTAINS_DISH]->()
         DELETE rd
-        WITH m
+        WITH DISTINCT m
         SET m.dish_name = $dish_name,
             m.has_vegetables = $has_vegetables,
             m.is_fruit = $is_fruit,
