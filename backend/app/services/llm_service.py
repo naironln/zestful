@@ -227,3 +227,48 @@ async def text_call(system: str, prompt: str, max_tokens: int = 128) -> dict:
     except Exception as exc:
         logger.error("OpenAI text fallback also failed: %s", exc)
         raise
+
+
+# ── Web search call (Anthropic server tool) ────────────────────────
+
+
+async def web_search_call(system: str, prompt: str, max_tokens: int = 1024) -> dict:
+    """Call Claude Sonnet with web_search server tool and return parsed JSON.
+
+    Uses the Anthropic web_search_20250305 tool which performs real-time web
+    searches server-side. Localized to Brazil for nutritional product lookups.
+    Falls back to a regular text_call if the Anthropic client is unavailable.
+    """
+    client = get_anthropic_client()
+    if not client:
+        logger.warning("Anthropic client unavailable for web search, falling back to text_call")
+        return await text_call(system, prompt, max_tokens)
+
+    try:
+        message = await client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=max_tokens,
+            system=system,
+            tools=[
+                {
+                    "type": "web_search_20250305",
+                    "name": "web_search",
+                    "max_uses": 3,
+                    "user_location": {
+                        "type": "approximate",
+                        "country": "BR",
+                        "timezone": "America/Sao_Paulo",
+                    },
+                }
+            ],
+            messages=[{"role": "user", "content": prompt}],
+        )
+        # Extract text blocks from the response (skip tool_use/tool_result blocks)
+        text_parts = [
+            block.text for block in message.content if hasattr(block, "text")
+        ]
+        raw = " ".join(text_parts).strip()
+        return json.loads(_extract_json(raw))
+    except Exception as exc:
+        logger.warning("Web search call failed: %s — falling back to text_call", exc)
+        return await text_call(system, prompt, max_tokens)

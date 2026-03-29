@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from typing import Literal
 from datetime import datetime
 
-from app.models.nutrition import NutrientValue, PlateComposition, PortionEstimate
+from app.models.nutrition import NutrientValue, PlateComposition, PortionEstimate, NutritionCalculationTrace
 
 
 class MealNutritionFlags(BaseModel):
@@ -45,6 +45,7 @@ class MealDetail(BaseModel):
     plate_composition: list[PlateComposition] | None = None
     nutrients: list[NutrientValue] | None = None
     nutrition_flags: MealNutritionFlags | None = None
+    nutrition_trace: NutritionCalculationTrace | None = None
 
 
 class MealPatch(BaseModel):

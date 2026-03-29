@@ -28,6 +28,8 @@ jobs:
             cd /opt/zestful
             echo "=== git pull ==="
             git pull
+            echo "=== docker prune ==="
+            docker system prune -f
             echo "=== docker compose up ==="
             docker compose -f docker-compose.prod.yml up -d --build --force-recreate
             echo "=== ps ==="

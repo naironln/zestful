@@ -4,6 +4,7 @@ import { ptBR } from 'date-fns/locale'
 import { formatInBrasilia } from '@/lib/brasilTimezone'
 import { ArrowLeft, Utensils, Scale } from 'lucide-react'
 import NutritionFlagsBadges from '@/components/meals/NutritionFlagsBadges'
+import NutritionTraceCard from '@/components/meals/NutritionTraceCard'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { nutritionistCommentsApi } from '@/api/comments'
 import { BASE_URL } from '@/api/client'
@@ -269,6 +270,11 @@ export default function PatientMealDetailPage() {
           ))}
         </CardContent>
       </Card>
+
+      {/* Nutrition calculation trace */}
+      {meal.nutrition_trace && (
+        <NutritionTraceCard trace={meal.nutrition_trace} />
+      )}
 
       {/* Full nutrients table */}
       {otherNutrients.length > 0 && (
