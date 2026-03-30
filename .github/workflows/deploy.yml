@@ -34,7 +34,6 @@ jobs:
             docker compose -f docker-compose.prod.yml down --remove-orphans || true
             docker image prune -a -f
             docker builder prune -a -f
-            docker volume prune -f
             echo "=== disk after cleanup ==="
             df -h /
             echo "=== docker compose up ==="
