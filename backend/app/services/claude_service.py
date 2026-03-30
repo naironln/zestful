@@ -272,9 +272,12 @@ async def extract_image_detail(
     image_bytes: bytes,
     media_type: str,
     ingredients: list[str],
+    notes: str | None = None,
 ) -> ImageDetailResult:
     """Extract detailed description, visible labels, and product identifiers from meal photo."""
     prompt = IMAGE_DETAIL_USER_PROMPT.format(ingredients=", ".join(ingredients))
+    if notes and notes.strip():
+        prompt += f'\n\nObservação do usuário sobre esta refeição: "{notes.strip()}"\nUse como pista adicional na análise. Se não for relevante, ignore.'
     try:
         data = await vision_call(image_bytes, media_type, IMAGE_DETAIL_SYSTEM_PROMPT, prompt)
         return ImageDetailResult(**data)
@@ -288,6 +291,7 @@ async def estimate_portions(
     media_type: str,
     ingredients: list[str],
     image_detail: ImageDetailResult | None = None,
+    notes: str | None = None,
 ) -> dict:
     """Estimate portion sizes (grams) and plate composition from meal photo."""
     context_block = ""
@@ -303,6 +307,8 @@ async def estimate_portions(
         ingredients=", ".join(ingredients),
         image_context_block=context_block,
     )
+    if notes and notes.strip():
+        prompt += f'\n\nObservação do usuário sobre esta refeição: "{notes.strip()}"\nUse como pista adicional na estimativa de porções. Se não for relevante, ignore.'
     try:
         return await vision_call(image_bytes, media_type, PORTION_SYSTEM_PROMPT, prompt)
     except Exception as exc:
@@ -344,9 +350,16 @@ async def reconcile_nutrition(
         return {"adjustments": [], "validation_notes": [], "overall_confidence": 0.5}
 
 
-async def analyze_meal_image(image_bytes: bytes, media_type: str = "image/jpeg") -> LLMAnalysisResult:
+async def analyze_meal_image(
+    image_bytes: bytes,
+    media_type: str = "image/jpeg",
+    notes: str | None = None,
+) -> LLMAnalysisResult:
+    prompt = USER_PROMPT
+    if notes and notes.strip():
+        prompt += f'\n\nObservação do usuário sobre esta refeição: "{notes.strip()}"\nUse como pista adicional na identificação. Se não for relevante, ignore.'
     try:
-        data = await vision_call(image_bytes, media_type, SYSTEM_PROMPT, USER_PROMPT)
+        data = await vision_call(image_bytes, media_type, SYSTEM_PROMPT, prompt)
         return LLMAnalysisResult(**data)
     except Exception as exc:
         logger.error("All LLM providers failed for meal analysis: %s", exc)
