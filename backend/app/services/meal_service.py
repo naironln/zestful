@@ -246,12 +246,13 @@ def _meal_record_to_detail(
     image_url = f"{base_url}/media/{image_path}" if image_path else None
 
     plate_composition = None
-    raw_comp = meal.get("plate_composition")
-    if raw_comp:
-        try:
-            plate_composition = json.loads(raw_comp) if isinstance(raw_comp, str) else raw_comp
-        except Exception:
-            plate_composition = None
+    if meal.get("nutrition_analyzed"):
+        raw_comp = meal.get("plate_composition")
+        if raw_comp:
+            try:
+                plate_composition = json.loads(raw_comp) if isinstance(raw_comp, str) else raw_comp
+            except Exception:
+                plate_composition = None
 
     # Parse stored trace if not provided directly
     if nutrition_trace is None:
@@ -538,18 +539,20 @@ async def get_meal_detail_full(session, user_id: str, meal_id: str) -> MealDetai
     if not meal:
         return None
 
-    # Parse stored trace
     stored_trace = None
-    raw_trace = meal.get("nutrition_trace")
-    if raw_trace:
-        try:
-            trace_data = json.loads(raw_trace) if isinstance(raw_trace, str) else raw_trace
-            stored_trace = NutritionCalculationTrace(**trace_data)
-        except Exception:
-            pass
+    nutrients = None
 
-    nutrition_data = await get_meal_nutrition(session, meal_id, user_id)
-    nutrients = _aggregate_nutrients_with_trace(nutrition_data, stored_trace)
+    if meal.get("nutrition_analyzed"):
+        raw_trace = meal.get("nutrition_trace")
+        if raw_trace:
+            try:
+                trace_data = json.loads(raw_trace) if isinstance(raw_trace, str) else raw_trace
+                stored_trace = NutritionCalculationTrace(**trace_data)
+            except Exception:
+                pass
+
+        nutrition_data = await get_meal_nutrition(session, meal_id, user_id)
+        nutrients = _aggregate_nutrients_with_trace(nutrition_data, stored_trace)
 
     return _meal_record_to_detail(meal, nutrients, nutrition_trace=stored_trace)
 
@@ -563,16 +566,19 @@ async def get_meal_detail_full_for_nutritionist(
         return None
 
     stored_trace = None
-    raw_trace = meal.get("nutrition_trace")
-    if raw_trace:
-        try:
-            trace_data = json.loads(raw_trace) if isinstance(raw_trace, str) else raw_trace
-            stored_trace = NutritionCalculationTrace(**trace_data)
-        except Exception:
-            pass
+    nutrients = None
 
-    nutrition_data = await get_meal_nutrition(session, meal_id, patient_id)
-    nutrients = _aggregate_nutrients_with_trace(nutrition_data, stored_trace)
+    if meal.get("nutrition_analyzed"):
+        raw_trace = meal.get("nutrition_trace")
+        if raw_trace:
+            try:
+                trace_data = json.loads(raw_trace) if isinstance(raw_trace, str) else raw_trace
+                stored_trace = NutritionCalculationTrace(**trace_data)
+            except Exception:
+                pass
+
+        nutrition_data = await get_meal_nutrition(session, meal_id, patient_id)
+        nutrients = _aggregate_nutrients_with_trace(nutrition_data, stored_trace)
 
     return _meal_record_to_detail(meal, nutrients, nutrition_trace=stored_trace)
 
