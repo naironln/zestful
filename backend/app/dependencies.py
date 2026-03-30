@@ -34,3 +34,9 @@ async def require_nutritionist(current_user=Depends(get_current_user)):
     if current_user.get("role") != "nutritionist":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Nutritionist access required")
     return current_user
+
+
+async def require_patient(current_user=Depends(get_current_user)):
+    if current_user.get("role") != "patient":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Patient access required")
+    return current_user

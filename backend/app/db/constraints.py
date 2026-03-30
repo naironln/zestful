@@ -14,6 +14,7 @@ CONSTRAINTS = [
 ]
 
 INDEXES = [
+    "CREATE INDEX link_request_status IF NOT EXISTS FOR ()-[r:LINK_REQUEST]-() ON (r.status)",
     "CREATE INDEX meal_eaten_at IF NOT EXISTS FOR (m:MealEntry) ON (m.eaten_at)",
     "CREATE INDEX meal_type_idx IF NOT EXISTS FOR (m:MealEntry) ON (m.meal_type)",
     "CREATE INDEX user_email_idx IF NOT EXISTS FOR (u:User) ON (u.email)",

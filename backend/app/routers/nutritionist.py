@@ -5,12 +5,13 @@ from neo4j import AsyncSession
 from app.dependencies import get_session, require_nutritionist
 from app.models.meal import MealEntryOut, MealDetail
 from app.models.stats import PeriodStats
-from app.models.user import UserOut
+from app.models.user import UserOut, OutboundLinkRequestOut
 from app.models.comment import CommentCreate, CommentOut, WeekCommentCreate, MealCommentsMap
 from app.db.queries.user_queries import (
     get_patients_for_nutritionist,
-    link_patient_to_nutritionist,
     get_user_by_email,
+    create_link_request,
+    get_outbound_requests_for_nutritionist,
 )
 from app.db.queries.nutrition_queries import get_patient_meals
 from app.db.queries.comment_queries import (
@@ -41,7 +42,7 @@ class LinkByEmailRequest(BaseModel):
     email: EmailStr
 
 
-@router.post("/patients/link-by-email", response_model=UserOut, status_code=201)
+@router.post("/patients/link-by-email", response_model=OutboundLinkRequestOut, status_code=202)
 async def link_patient_by_email(
     data: LinkByEmailRequest,
     session: AsyncSession = Depends(get_session),
@@ -50,17 +51,19 @@ async def link_patient_by_email(
     patient = await get_user_by_email(session, data.email)
     if not patient or patient.get("role") != "patient":
         raise HTTPException(status_code=404, detail="Paciente não encontrado com esse e-mail.")
-    await link_patient_to_nutritionist(session, current_user["id"], patient["id"])
-    return UserOut(id=patient["id"], email=patient["email"], name=patient["name"], role=patient["role"])
+    request = await create_link_request(session, current_user["id"], patient["id"])
+    if not request:
+        raise HTTPException(status_code=409, detail="Já existe uma solicitação pendente ou vínculo ativo com este paciente.")
+    return OutboundLinkRequestOut(**request)
 
 
-@router.post("/patients/{patient_id}/link", status_code=204)
-async def link_patient(
-    patient_id: str,
+@router.get("/patients/pending-requests", response_model=list[OutboundLinkRequestOut])
+async def list_pending_requests(
     session: AsyncSession = Depends(get_session),
     current_user: dict = Depends(require_nutritionist),
 ):
-    await link_patient_to_nutritionist(session, current_user["id"], patient_id)
+    requests = await get_outbound_requests_for_nutritionist(session, current_user["id"])
+    return [OutboundLinkRequestOut(**r) for r in requests]
 
 
 @router.get("/patients/{patient_id}/meals/{meal_id}/detail", response_model=MealDetail)

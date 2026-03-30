@@ -4,18 +4,19 @@ import {
   formatInBrasilia,
   todayYmdBrasilia,
 } from '@/lib/brasilTimezone'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useDeleteMeal } from '@/hooks/useDeleteMeal'
 import { Link, useNavigate } from 'react-router-dom'
-import { Plus, Coffee, Sun, Moon, UtensilsCrossed, Salad, Apple, Cake, Factory, Drumstick, Home } from 'lucide-react'
+import { Plus, Coffee, Sun, Moon, UtensilsCrossed, Salad, Apple, Cake, Factory, Drumstick, Home, UserCheck } from 'lucide-react'
 import { mealsApi } from '@/api/meals'
-import { statsApi } from '@/api/stats'
+import { statsApi, patientApi } from '@/api/stats'
 import { getBatchMealComments } from '@/api/comments'
 import { useAuthStore } from '@/store/authStore'
 import MealCard from '@/components/meals/MealCard'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import EmptyState from '@/components/ui/EmptyState'
+import type { LinkRequest } from '@/types/user'
 
 const STAT_CONFIG = [
   {
@@ -51,6 +52,72 @@ const STAT_CONFIG = [
     iconColor: 'text-indigo-500',
   },
 ]
+
+function LinkRequestsBanner() {
+  const queryClient = useQueryClient()
+
+  const { data: requests = [] } = useQuery<LinkRequest[]>({
+    queryKey: ['patient', 'link-requests'],
+    queryFn: patientApi.linkRequests,
+    refetchInterval: 5_000,
+    refetchIntervalInBackground: false,
+  })
+
+  const respondMutation = useMutation({
+    mutationFn: ({ id, action }: { id: string; action: 'accept' | 'reject' }) =>
+      patientApi.respondToRequest(id, action),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patient', 'link-requests'] })
+    },
+  })
+
+  if (requests.length === 0) return null
+
+  return (
+    <Card className="border-brand-200 bg-brand-50/50 dark:border-brand-900 dark:bg-brand-950/10">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <UserCheck className="h-5 w-5 text-brand-500" />
+          Solicitações de vínculo
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {requests.map((req) => (
+          <div
+            key={req.id}
+            className="flex items-center justify-between rounded-lg border border-brand-100 bg-white p-3 dark:border-brand-900 dark:bg-warm-gray-900"
+          >
+            <div>
+              <p className="font-medium text-warm-gray-900 dark:text-warm-gray-100">
+                {req.nutritionist_name}
+              </p>
+              <p className="text-xs text-warm-gray-500 dark:text-warm-gray-400">
+                {req.nutritionist_email}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => respondMutation.mutate({ id: req.id, action: 'reject' })}
+                disabled={respondMutation.isPending}
+              >
+                Recusar
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => respondMutation.mutate({ id: req.id, action: 'accept' })}
+                disabled={respondMutation.isPending}
+              >
+                Aceitar
+              </Button>
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  )
+}
 
 export default function DashboardPage() {
   const navigate = useNavigate()
@@ -110,6 +177,9 @@ export default function DashboardPage() {
           </Link>
         </Button>
       </div>
+
+      {/* Link requests (patients only) */}
+      {user?.role === 'patient' && <LinkRequestsBanner />}
 
       {/* Today's stats */}
       {statValues && (

@@ -1,6 +1,7 @@
 import { apiClient } from './client'
 import type { PeriodStats } from '@/types/stats'
 import type { MealEntry } from '@/types/meal'
+import type { LinkRequest, OutboundLinkRequest } from '@/types/user'
 
 export const statsApi = {
   day: (date: string) =>
@@ -36,5 +37,16 @@ export const nutritionistApi = {
     apiClient.post(`/nutritionist/patients/${patientId}/link`),
 
   linkPatientByEmail: (email: string) =>
-    apiClient.post('/nutritionist/patients/link-by-email', { email }).then((r) => r.data),
+    apiClient.post<OutboundLinkRequest>('/nutritionist/patients/link-by-email', { email }).then((r) => r.data),
+
+  pendingRequests: () =>
+    apiClient.get<OutboundLinkRequest[]>('/nutritionist/patients/pending-requests').then((r) => r.data),
+}
+
+export const patientApi = {
+  linkRequests: () =>
+    apiClient.get<LinkRequest[]>('/patient/link-requests').then((r) => r.data),
+
+  respondToRequest: (id: string, action: 'accept' | 'reject') =>
+    apiClient.post(`/patient/link-requests/${id}/respond`, { action }).then((r) => r.data),
 }

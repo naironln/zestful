@@ -9,7 +9,7 @@ from app.config import settings
 from app.db.neo4j_driver import init_driver, close_driver, get_driver
 from app.db.constraints import create_constraints
 from app.db.seed.seed_taco import seed as seed_taco
-from app.routers import auth, meals, stats, nutritionist, nutrition
+from app.routers import auth, meals, stats, nutritionist, nutrition, patient
 
 
 async def _seed_taco_if_needed() -> None:
@@ -54,6 +54,7 @@ app.include_router(meals.router)
 app.include_router(stats.router)
 app.include_router(nutritionist.router)
 app.include_router(nutrition.router)
+app.include_router(patient.router)
 
 # Serve uploaded images
 media_path = Path(settings.media_dir)
