@@ -23,6 +23,13 @@
       "autoPort": false
     },
     {
+      "name": "frontend-elegant-dhawan",
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": ["-c", "cd \"/Users/naironlinsnogueira/Library/Mobile Documents/com~apple~CloudDocs/workplace/mirai_project/zestful/.claude/worktrees/elegant-dhawan/frontend\" && npm run dev -- --port 5175"],
+      "port": 5175,
+      "autoPort": false
+    },
+    {
       "name": "backend-fastapi",
       "runtimeExecutable": "uvicorn",
       "runtimeArgs": ["app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"],

@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { Upload, CheckCircle, Image as ImageIcon, FlaskConical, Loader2 } from 'lucide-react'
+import { Upload, CheckCircle, Image as ImageIcon, FlaskConical, Loader2, Wine } from 'lucide-react'
 import { mealsApi } from '@/api/meals'
 import { BASE_URL } from '@/api/client'
 import { Button } from '@/components/ui/button'
@@ -127,6 +127,15 @@ export default function UploadPage() {
           Tire ou selecione uma foto — a IA identifica o prato automaticamente.
         </p>
       </div>
+
+      <Button
+        variant="outline"
+        className="w-full gap-2"
+        onClick={() => navigate('/drink-log')}
+      >
+        <Wine className="h-4 w-4" />
+        Registrar doses de álcool
+      </Button>
 
       {!result ? (
         <>
