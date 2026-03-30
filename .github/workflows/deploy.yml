@@ -26,10 +26,17 @@ jobs:
             docker --version
             echo "=== cd ==="
             cd /opt/zestful
+            echo "=== disk before ==="
+            df -h /
             echo "=== git pull ==="
             git pull
-            echo "=== docker prune ==="
-            docker system prune -f
+            echo "=== docker cleanup ==="
+            docker compose -f docker-compose.prod.yml down --remove-orphans || true
+            docker image prune -a -f
+            docker builder prune -a -f
+            docker volume prune -f
+            echo "=== disk after cleanup ==="
+            df -h /
             echo "=== docker compose up ==="
             docker compose -f docker-compose.prod.yml up -d --build --force-recreate
             echo "=== ps ==="
