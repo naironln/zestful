@@ -323,6 +323,15 @@ export default function UploadPage() {
             )}
           </Button>
 
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => navigate(`/meals/${result!.id}`)}
+            disabled={nutritionMutation.isPending}
+          >
+            Salvar sem estimativa
+          </Button>
+
           <Button variant="outline" className="w-full" onClick={reset}>
             Registrar outra refeição
           </Button>
