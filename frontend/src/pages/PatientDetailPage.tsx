@@ -5,6 +5,7 @@ import { ptBR } from 'date-fns/locale'
 import {
   formatInBrasilia,
   weekStartMondayBrasilia,
+  weekdayShortFromYmd,
   ymdInBrasilia,
   monthAnchorBrasilia,
   monthRangeYmdBrasilia,
@@ -20,8 +21,11 @@ import {
 } from 'lucide-react'
 import { nutritionistApi } from '@/api/stats'
 import { nutritionistCommentsApi } from '@/api/comments'
+import { nutritionistAlcoholApi } from '@/api/alcohol'
 import { Button } from '@/components/ui/button'
 import MealCard from '@/components/meals/MealCard'
+import AlcoholDayCard from '@/components/alcohol/AlcoholDayCard'
+import AlcoholWeekChart from '@/components/alcohol/AlcoholWeekChart'
 import MealFilters, { type MealFilterState } from '@/components/meals/MealFilters'
 import StatsPanel from '@/components/stats/StatsPanel'
 import CommentSection from '@/components/comments/CommentSection'
@@ -86,6 +90,24 @@ export default function PatientDetailPage() {
       nutritionistCommentsApi.getBatchMealComments(patientId!, weekStartStr, weekEndStr),
     enabled: !!patientId && activeTab === 'week',
   })
+
+  const { data: weekAlcohol = [] } = useQuery({
+    queryKey: ['nutritionist', 'patient', patientId, 'alcohol', 'week', weekStartStr],
+    queryFn: () => nutritionistAlcoholApi.patientAlcohol(patientId!, weekStartStr, weekEndStr),
+    enabled: !!patientId && activeTab === 'week',
+  })
+
+  const alcoholChartData = useMemo(() => {
+    const map = new Map<string, number>()
+    for (let i = 0; i < 7; i++) {
+      map.set(ymdInBrasilia(addDays(weekStart, i)), 0)
+    }
+    for (const s of weekAlcohol) map.set(s.date, s.total_doses)
+    return Array.from(map.entries()).map(([date, doses]) => ({
+      day: weekdayShortFromYmd(date, ptBR),
+      doses,
+    }))
+  }, [weekAlcohol, weekStart])
 
   // ── Month queries ──
 
@@ -261,6 +283,22 @@ export default function PatientDetailPage() {
           </div>
 
           {weekStats && <StatsPanel stats={weekStats} />}
+
+          {weekAlcohol.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Doses de álcool por dia</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <AlcoholWeekChart data={alcoholChartData} />
+                <div className="space-y-2">
+                  {weekAlcohol.map((summary) => (
+                    <AlcoholDayCard key={summary.date} summary={summary} />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>

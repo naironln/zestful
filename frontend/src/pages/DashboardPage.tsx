@@ -11,8 +11,10 @@ import { Plus, Coffee, Sun, Moon, UtensilsCrossed, Salad, Apple, Cake, Factory, 
 import { mealsApi } from '@/api/meals'
 import { statsApi, patientApi } from '@/api/stats'
 import { getBatchMealComments } from '@/api/comments'
+import { alcoholApi } from '@/api/alcohol'
 import { useAuthStore } from '@/store/authStore'
 import MealCard from '@/components/meals/MealCard'
+import AlcoholDayCard from '@/components/alcohol/AlcoholDayCard'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import EmptyState from '@/components/ui/EmptyState'
@@ -121,6 +123,7 @@ function LinkRequestsBanner() {
 
 export default function DashboardPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
   const deleteMeal = useDeleteMeal()
   const today = todayYmdBrasilia()
@@ -138,6 +141,16 @@ export default function DashboardPage() {
   const { data: mealCommentsMap = {} } = useQuery({
     queryKey: ['meal-comments-batch', today],
     queryFn: () => getBatchMealComments(today, today),
+  })
+
+  const { data: alcoholSummaries = [] } = useQuery({
+    queryKey: ['alcohol', today],
+    queryFn: () => alcoholApi.list({ start: today, end: today }),
+  })
+
+  const deleteAlcohol = useMutation({
+    mutationFn: (id: string) => alcoholApi.delete(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['alcohol'] }),
   })
 
   const greeting = () => {
@@ -275,6 +288,27 @@ export default function DashboardPage() {
           ))}
         </CardContent>
       </Card>
+
+      {/* Alcohol */}
+      {alcoholSummaries.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Álcool hoje</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {alcoholSummaries.map((summary) => (
+              <AlcoholDayCard
+                key={summary.date}
+                summary={summary}
+                onDeleteEntry={(id) => {
+                  if (!window.confirm('Excluir este registro?')) return
+                  deleteAlcohol.mutate(id)
+                }}
+              />
+            ))}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

@@ -11,6 +11,7 @@ import MealDetailPage from '@/pages/MealDetailPage'
 import NutritionistPage from '@/pages/NutritionistPage'
 import PatientDetailPage from '@/pages/PatientDetailPage'
 import PatientMealDetailPage from '@/pages/PatientMealDetailPage'
+import DrinkLogPage from '@/pages/DrinkLogPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated())
@@ -50,6 +51,7 @@ export default function App() {
                 <Route path="/week" element={<PatientRoute><WeekViewPage /></PatientRoute>} />
                 <Route path="/month" element={<PatientRoute><MonthViewPage /></PatientRoute>} />
                 <Route path="/upload" element={<PatientRoute><UploadPage /></PatientRoute>} />
+                <Route path="/drink-log" element={<PatientRoute><DrinkLogPage /></PatientRoute>} />
                 <Route path="/meals/:mealId" element={<PatientRoute><MealDetailPage /></PatientRoute>} />
                 <Route
                   path="/nutritionist"

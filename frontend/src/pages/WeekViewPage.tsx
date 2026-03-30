@@ -1,16 +1,19 @@
 import { useState, useMemo } from 'react'
 import { addDays, addWeeks, subWeeks } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { formatInBrasilia, weekStartMondayBrasilia, ymdInBrasilia } from '@/lib/brasilTimezone'
-import { useQuery } from '@tanstack/react-query'
+import { formatInBrasilia, weekStartMondayBrasilia, weekdayShortFromYmd, ymdInBrasilia } from '@/lib/brasilTimezone'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useDeleteMeal } from '@/hooks/useDeleteMeal'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
 import { mealsApi } from '@/api/meals'
 import { statsApi } from '@/api/stats'
 import { getWeekComments, getBatchMealComments } from '@/api/comments'
+import { alcoholApi } from '@/api/alcohol'
 import { Button } from '@/components/ui/button'
 import MealCard from '@/components/meals/MealCard'
+import AlcoholDayCard from '@/components/alcohol/AlcoholDayCard'
+import AlcoholWeekChart from '@/components/alcohol/AlcoholWeekChart'
 import MealFilters, { type MealFilterState } from '@/components/meals/MealFilters'
 import StatsPanel from '@/components/stats/StatsPanel'
 import CommentSection from '@/components/comments/CommentSection'
@@ -20,6 +23,7 @@ import type { MealEntry } from '@/types/meal'
 
 export default function WeekViewPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const deleteMeal = useDeleteMeal()
   const [weekStart, setWeekStart] = useState(() => weekStartMondayBrasilia())
   const [filters, setFilters] = useState<MealFilterState>({ mealTypes: [], nutritionFlags: [], mealSource: null })
@@ -66,6 +70,28 @@ export default function WeekViewPage() {
     queryFn: () => getBatchMealComments(startStr, endStr),
   })
 
+  const { data: alcoholSummaries = [] } = useQuery({
+    queryKey: ['alcohol', startStr, endStr],
+    queryFn: () => alcoholApi.list({ start: startStr, end: endStr }),
+  })
+
+  const deleteAlcohol = useMutation({
+    mutationFn: (id: string) => alcoholApi.delete(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['alcohol'] }),
+  })
+
+  const alcoholChartData = useMemo(() => {
+    const map = new Map<string, number>()
+    for (let i = 0; i < 7; i++) {
+      map.set(ymdInBrasilia(addDays(weekStart, i)), 0)
+    }
+    for (const s of alcoholSummaries) map.set(s.date, s.total_doses)
+    return Array.from(map.entries()).map(([date, doses]) => ({
+      day: weekdayShortFromYmd(date, ptBR),
+      doses,
+    }))
+  }, [alcoholSummaries, weekStart])
+
   const label = `${formatInBrasilia(weekStart, "d 'de' MMM", { locale: ptBR })} – ${formatInBrasilia(weekEnd, "d 'de' MMM", { locale: ptBR })}`
 
   return (
@@ -99,6 +125,30 @@ export default function WeekViewPage() {
           </CardHeader>
           <CardContent>
             <CommentSection comments={weekComments} />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Alcohol chart */}
+      {alcoholSummaries.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Doses de álcool por dia</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <AlcoholWeekChart data={alcoholChartData} />
+            <div className="space-y-2">
+              {alcoholSummaries.map((summary) => (
+                <AlcoholDayCard
+                  key={summary.date}
+                  summary={summary}
+                  onDeleteEntry={(id) => {
+                    if (!window.confirm('Excluir este registro?')) return
+                    deleteAlcohol.mutate(id)
+                  }}
+                />
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}

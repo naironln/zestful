@@ -25,6 +25,9 @@ from app.db.queries.comment_queries import (
 )
 from app.services.meal_service import _meal_record_to_out, get_meal_detail_full_for_nutritionist
 from app.services.stats_service import build_stats, week_range, month_range
+from app.models.alcohol import AlcoholDaySummary
+from app.db.queries.alcohol_queries import get_alcohol_entries_for_patient
+from app.services.alcohol_service import group_into_day_summaries
 
 router = APIRouter(prefix="/nutritionist", tags=["nutritionist"])
 
@@ -198,3 +201,19 @@ async def remove_comment(
     current_user: dict = Depends(require_nutritionist),
 ):
     await delete_comment(session, current_user["id"], comment_id)
+
+
+# ── Alcohol endpoints ──────────────────────────────────────────────────────────
+
+@router.get("/patients/{patient_id}/alcohol", response_model=list[AlcoholDaySummary])
+async def patient_alcohol(
+    patient_id: str,
+    start: str = Query(...),
+    end: str = Query(...),
+    session: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(require_nutritionist),
+):
+    records = await get_alcohol_entries_for_patient(
+        session, current_user["id"], patient_id, start, end
+    )
+    return group_into_day_summaries(records)
