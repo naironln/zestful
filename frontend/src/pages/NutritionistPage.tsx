@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Users, UserPlus } from 'lucide-react'
+import { Users, UserPlus, Clock } from 'lucide-react'
 import { nutritionistApi } from '@/api/stats'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import EmptyState from '@/components/ui/EmptyState'
-import type { User } from '@/types/user'
+import type { User, OutboundLinkRequest } from '@/types/user'
 
 function PatientAvatar({ name }: { name: string }) {
   const initials = name
@@ -31,12 +32,22 @@ export default function NutritionistPage() {
   const { data: patients = [], isLoading } = useQuery<User[]>({
     queryKey: ['nutritionist', 'patients'],
     queryFn: nutritionistApi.patients,
+    refetchInterval: 5_000,
+    refetchIntervalInBackground: false,
+  })
+
+  const { data: pendingRequests = [] } = useQuery<OutboundLinkRequest[]>({
+    queryKey: ['nutritionist', 'pending-requests'],
+    queryFn: nutritionistApi.pendingRequests,
+    refetchInterval: 5_000,
+    refetchIntervalInBackground: false,
   })
 
   const linkMutation = useMutation({
     mutationFn: () => nutritionistApi.linkPatientByEmail(email.trim()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['nutritionist', 'patients'] })
+      queryClient.invalidateQueries({ queryKey: ['nutritionist', 'pending-requests'] })
       setEmail('')
     },
   })
@@ -83,11 +94,40 @@ export default function NutritionistPage() {
           )}
           {linkMutation.isSuccess && (
             <p className="mt-2 text-sm text-green-600 dark:text-green-400">
-              Paciente vinculado!
+              Solicitação enviada! Aguardando aprovação do paciente.
             </p>
           )}
         </CardContent>
       </Card>
+
+      {/* Pending requests */}
+      {pendingRequests.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Clock className="h-4 w-4 text-warm-gray-500" />
+              Solicitações pendentes
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="divide-y divide-warm-gray-100 dark:divide-warm-gray-800">
+              {pendingRequests.map((req) => (
+                <li key={req.id} className="flex items-center justify-between py-3">
+                  <div>
+                    <p className="font-medium text-warm-gray-900 dark:text-warm-gray-100">
+                      {req.patient_name}
+                    </p>
+                    <p className="text-xs text-warm-gray-500 dark:text-warm-gray-400">
+                      {req.patient_email}
+                    </p>
+                  </div>
+                  <Badge variant="outline">Aguardando</Badge>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Patient list */}
       <Card>

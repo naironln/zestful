@@ -18,7 +18,7 @@
     {
       "name": "frontend-vite-worktree",
       "runtimeExecutable": "/bin/bash",
-      "runtimeArgs": ["-c", "export PATH=/Users/naironlinsnogueira/.nvm/versions/node/v22.13.1/bin:$PATH && npm run dev --prefix frontend -- --port 5174"],
+      "runtimeArgs": ["-c", "cd \"/Users/naironlinsnogueira/Library/Mobile Documents/com~apple~CloudDocs/workplace/mirai_project/zestful/.claude/worktrees/compassionate-cerf/frontend\" && \"/Users/naironlinsnogueira/Library/Mobile Documents/com~apple~CloudDocs/workplace/mirai_project/zestful/frontend/node_modules/.bin/vite\" --port 5174"],
       "port": 5174,
       "autoPort": false
     },
