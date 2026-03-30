@@ -164,7 +164,7 @@ async def upload_meal(
         eaten_at = _extract_exif_datetime(image_bytes) or datetime.now(BRASILIA)
 
     # Analyze with Claude
-    analysis = await analyze_meal_image(image_bytes, media_type)
+    analysis = await analyze_meal_image(image_bytes, media_type, notes=notes)
 
     meal_id = str(uuid.uuid4())
 
@@ -299,6 +299,7 @@ async def analyze_meal_nutrition(session, user_id: str, meal_id: str) -> MealDet
     if not meal:
         return None
 
+    notes = meal.get("notes") or None
     ingredients = meal.get("ingredients", [])
     image_path = meal.get("image_path")
     if not image_path:
@@ -329,10 +330,10 @@ async def analyze_meal_nutrition(session, user_id: str, meal_id: str) -> MealDet
         return None
 
     # ── Phase 1: Detailed image description ───────────────────────
-    image_detail = await extract_image_detail(image_bytes, media_type, ingredients)
+    image_detail = await extract_image_detail(image_bytes, media_type, ingredients, notes=notes)
 
     # ── Phase 2: Portion estimation (enhanced with image context) ─
-    estimation = await estimate_portions(image_bytes, media_type, ingredients, image_detail)
+    estimation = await estimate_portions(image_bytes, media_type, ingredients, image_detail, notes=notes)
     portions = estimation.get("portions", [])
     plate_composition = estimation.get("plate_composition", [])
 
