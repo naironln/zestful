@@ -29,6 +29,7 @@ export interface NutritionFlags {
   homemade_count: number
   restaurant_count: number
   delivery_count: number
+  analyzed_count: number
 }
 
 export interface DayNutritionFlags {
@@ -44,6 +45,43 @@ export interface DayNutritionFlags {
   delivery: number
 }
 
+export interface LoggingConsistency {
+  total_days: number
+  days_with_meals: number
+  gap_days: number
+}
+
+export interface DietDiversity {
+  unique_ingredients: number
+  total_uses: number
+}
+
+export interface MealTimingEntry {
+  meal_type: string
+  hour: number
+  count: number
+}
+
+export interface AlcoholDayDoses {
+  date: string
+  doses: number
+}
+
+export interface AlcoholStats {
+  total_doses: number
+  days_with_alcohol: number
+  doses_per_day: AlcoholDayDoses[]
+}
+
+export interface DailyMacros {
+  date: string
+  energy_kcal: number
+  protein_g: number
+  carbohydrate_g: number
+  lipid_g: number
+  fiber_g: number
+}
+
 export interface PeriodStats {
   period: string
   date_range: DateRange
@@ -54,4 +92,9 @@ export interface PeriodStats {
   top_ingredients: TopItem[]
   nutrition_flags: NutritionFlags
   nutrition_flags_per_day: DayNutritionFlags[]
+  logging_consistency: LoggingConsistency
+  diet_diversity: DietDiversity
+  meal_timing: MealTimingEntry[]
+  alcohol_stats: AlcoholStats
+  daily_macros: DailyMacros[]
 }
