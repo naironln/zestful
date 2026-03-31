@@ -5,10 +5,13 @@ import { ptBR } from 'date-fns/locale'
 import { weekdayShortFromYmd } from '@/lib/brasilTimezone'
 import type { DayNutritionFlags } from '@/types/stats'
 
-const SERIES = [
+const POSITIVE_SERIES = [
   { key: 'vegetables', label: 'Verduras', color: '#10b981' },
   { key: 'protein', label: 'Proteína', color: '#ef4444' },
   { key: 'fruits', label: 'Frutas', color: '#f97316' },
+] as const
+
+const CAUTION_SERIES = [
   { key: 'desserts', label: 'Doces', color: '#ec4899' },
   { key: 'ultra_processed', label: 'Ultra.', color: '#f59e0b' },
 ] as const
@@ -62,13 +65,17 @@ export default function NutritionDailyBar({ data }: { data: DayNutritionFlags[] 
 
   const chartData = data.map((d) => ({
     date: weekdayShortFromYmd(d.date, ptBR),
-    ...Object.fromEntries(SERIES.map((s) => [s.key, d[s.key as keyof DayNutritionFlags]])),
+    vegetables: d.vegetables,
+    protein: d.protein,
+    fruits: d.fruits,
+    desserts: d.desserts,
+    ultra_processed: d.ultra_processed,
   }))
 
   return (
     <div>
       <ResponsiveContainer width="100%" height={200}>
-        <BarChart data={chartData} barGap={1} barSize={14}>
+        <BarChart data={chartData} barGap={2} barSize={data.length > 14 ? 10 : 18}>
           <CartesianGrid
             strokeDasharray="3 3"
             vertical={false}
@@ -90,13 +97,30 @@ export default function NutritionDailyBar({ data }: { data: DayNutritionFlags[] 
           />
           <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(236, 141, 19, 0.06)' }} />
           <Legend content={<CustomLegend />} />
-          {SERIES.map((s) => (
+          {/* Positive stack */}
+          {POSITIVE_SERIES.map((s) => (
             <Bar
               key={s.key}
               dataKey={s.key}
               name={s.label}
+              stackId="positive"
               fill={s.color}
-              radius={[3, 3, 0, 0]}
+              radius={s.key === 'fruits' ? [3, 3, 0, 0] : undefined}
+              animationDuration={800}
+              animationEasing="ease-out"
+              animationBegin={200}
+            />
+          ))}
+          {/* Caution stack */}
+          {CAUTION_SERIES.map((s) => (
+            <Bar
+              key={s.key}
+              dataKey={s.key}
+              name={s.label}
+              stackId="caution"
+              fill={s.color}
+              fillOpacity={0.7}
+              radius={s.key === 'ultra_processed' ? [3, 3, 0, 0] : undefined}
               animationDuration={800}
               animationEasing="ease-out"
               animationBegin={200}

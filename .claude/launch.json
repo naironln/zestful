@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "docker-compose-all",
-      "runtimeExecutable": "docker",
-      "runtimeArgs": ["compose", "up", "--build"],
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": ["-c", "COMPOSE_PROJECT_NAME=zestful docker compose --project-directory \"/Users/naironlinsnogueira/Library/Mobile Documents/com~apple~CloudDocs/workplace/mirai_project/zestful/.claude/worktrees/hardcore-taussig\" up --build"],
       "port": 5173,
       "autoPort": false
     },
@@ -27,6 +27,20 @@
       "runtimeExecutable": "/bin/bash",
       "runtimeArgs": ["-c", "cd \"/Users/naironlinsnogueira/Library/Mobile Documents/com~apple~CloudDocs/workplace/mirai_project/zestful/.claude/worktrees/elegant-dhawan/frontend\" && npm run dev -- --port 5175"],
       "port": 5175,
+      "autoPort": false
+    },
+    {
+      "name": "frontend-hardcore-taussig",
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": ["-c", "cd \"/Users/naironlinsnogueira/Library/Mobile Documents/com~apple~CloudDocs/workplace/mirai_project/zestful/.claude/worktrees/hardcore-taussig/frontend\" && \"/Users/naironlinsnogueira/Library/Mobile Documents/com~apple~CloudDocs/workplace/mirai_project/zestful/frontend/node_modules/.bin/vite\" --port 5176"],
+      "port": 5176,
+      "autoPort": false
+    },
+    {
+      "name": "backend-neo4j-hardcore-taussig",
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": ["-c", "COMPOSE_PROJECT_NAME=zestful docker compose --project-directory \"/Users/naironlinsnogueira/Library/Mobile Documents/com~apple~CloudDocs/workplace/mirai_project/zestful/.claude/worktrees/hardcore-taussig\" up neo4j backend"],
+      "port": 8000,
       "autoPort": false
     },
     {

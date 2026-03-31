@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, EmailStr
-from neo4j import AsyncSession
+from neo4j import AsyncDriver, AsyncSession
 
+from app.db.neo4j_driver import get_driver
 from app.dependencies import get_session, require_nutritionist
 from app.models.meal import MealEntryOut, MealDetail
 from app.models.stats import PeriodStats
@@ -99,11 +100,11 @@ async def patient_meals(
 async def patient_stats_week(
     patient_id: str,
     week_start: str = Query(...),
-    session: AsyncSession = Depends(get_session),
+    driver: AsyncDriver = Depends(get_driver),
     current_user: dict = Depends(require_nutritionist),
 ):
     start, end = week_range(week_start)
-    return await build_stats(session, patient_id, start, end, "week")
+    return await build_stats(driver, patient_id, start, end, "week")
 
 
 @router.get("/patients/{patient_id}/stats/month", response_model=PeriodStats)
@@ -111,11 +112,11 @@ async def patient_stats_month(
     patient_id: str,
     year: int = Query(...),
     month: int = Query(..., ge=1, le=12),
-    session: AsyncSession = Depends(get_session),
+    driver: AsyncDriver = Depends(get_driver),
     current_user: dict = Depends(require_nutritionist),
 ):
     start, end = month_range(year, month)
-    return await build_stats(session, patient_id, start, end, "month")
+    return await build_stats(driver, patient_id, start, end, "month")
 
 
 @router.get("/patients/{patient_id}/comments/meals", response_model=MealCommentsMap)
